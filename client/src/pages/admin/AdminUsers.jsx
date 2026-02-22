@@ -8,13 +8,18 @@ export default function AdminUsers() {
   const [balanceChange, setBalanceChange] = useState({});
   const [balanceReason, setBalanceReason] = useState({});
   const [saving, setSaving] = useState(null);
+  const [deleting, setDeleting] = useState(null);
 
   useEffect(() => { api.admin.getUsers().then(setUsers).catch(() => {}); }, []);
+
+  const load = () => {
+    api.admin.getUsers().then(setUsers).catch(() => {});
+  };
 
   const handleUpdate = async (id, data) => {
     try {
       await api.admin.updateUser(id, data);
-      api.admin.getUsers().then(setUsers);
+      load();
       setEditing(null);
       setBalanceChange({});
       setBalanceReason({});
@@ -31,13 +36,30 @@ export default function AdminUsers() {
         balanceChange: parseInt(balanceChange[id]),
         balanceReason: balanceReason[id] || '',
       });
-      api.admin.getUsers().then(setUsers);
+      load();
       setBalanceChange({ ...balanceChange, [id]: '' });
       setBalanceReason({ ...balanceReason, [id]: '' });
     } catch (err) {
       alert('Ошибка: ' + (err.response?.data?.error || err.message));
     } finally {
       setSaving(null);
+    }
+  };
+
+  const handleDelete = async (id, username) => {
+    if (!confirm(`Удалить пользователя "${username}"?\n\nВНИМАНИЕ: Это действие необратимо!\nБудут удалены:\n- Все серверы в Pterodactyl\n- Аккаунт в Pterodactyl\n- Все заказы, платежи, тикеты`)) {
+      return;
+    }
+
+    setDeleting(id);
+    try {
+      await api.admin.deleteUser(id);
+      alert('Пользователь удалён');
+      load();
+    } catch (err) {
+      alert('Ошибка: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -55,6 +77,7 @@ export default function AdminUsers() {
               <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Статус</th>
               <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Баланс</th>
               <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Изменить баланс</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Создан</th>
               <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Действия</th>
             </tr>
           </thead>
@@ -110,9 +133,24 @@ export default function AdminUsers() {
                 </td>
                 <td className="px-4 py-3 text-gray-500">{formatDate(u.createdAt)}</td>
                 <td className="px-4 py-3">
-                  <button onClick={() => setEditing(editing === u.id ? null : u.id)} className="text-primary-600 dark:text-primary-400 hover:underline text-xs">
-                    {editing === u.id ? 'Закрыть' : 'Изменить'}
-                  </button>
+                  <div className="space-y-1">
+                    {editing === u.id ? (
+                      <button onClick={() => setEditing(null)} className="block text-primary-600 dark:text-primary-400 hover:underline text-xs">
+                        Закрыть
+                      </button>
+                    ) : (
+                      <button onClick={() => setEditing(u.id)} className="block text-primary-600 dark:text-primary-400 hover:underline text-xs">
+                        Изменить
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(u.id, u.username)}
+                      disabled={deleting === u.id}
+                      className="block text-red-600 dark:text-red-400 hover:underline text-xs disabled:opacity-50"
+                    >
+                      {deleting === u.id ? '...' : 'Удалить'}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

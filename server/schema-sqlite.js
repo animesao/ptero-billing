@@ -28,7 +28,7 @@ export const plans = sqliteTable("plans", {
   priceYearly: integer("price_yearly"),
   nestId: integer("nest_id"),
   eggId: integer("egg_id"),
-  nodeId: integer("node_id"),
+  nodeIds: text("node_ids"), // JSON массив ID нод для случайного выбора
   allocationId: integer("allocation_id"),
   dockerImage: text("docker_image"),
   startup: text("startup"),
@@ -62,6 +62,7 @@ export const servers = sqliteTable("servers", {
   orderId: integer("order_id").references(() => orders.id),
   pteroServerId: integer("ptero_server_id"),
   pteroIdentifier: text("ptero_identifier"),
+  pteroAllocationId: integer("ptero_allocation_id"), // Сохраняем ID аллокации
   name: text("name").notNull(),
   status: text("status").notNull().default("installing"),
   cpu: integer("cpu"),

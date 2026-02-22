@@ -40,11 +40,6 @@ export default function AdminSettings() {
       fields: [
         { key: 'ptero_url', label: 'URL панели', placeholder: 'https://panel.example.com', type: 'text' },
         { key: 'ptero_api_key', label: 'API ключ (Application)', placeholder: 'ptla_...', type: 'password' },
-        { key: 'ptero_default_egg', label: 'Egg ID по умолчанию', placeholder: '1', type: 'number' },
-        { key: 'ptero_default_location', label: 'Location ID по умолчанию', placeholder: '1', type: 'number' },
-        { key: 'ptero_default_allocation', label: 'Allocation ID по умолчанию', placeholder: '1', type: 'number' },
-        { key: 'ptero_docker_image', label: 'Docker Image', placeholder: 'ghcr.io/pterodactyl/yolks:java_17', type: 'text' },
-        { key: 'ptero_startup', label: 'Startup команда', placeholder: 'java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar server.jar', type: 'text' },
       ],
     },
     {

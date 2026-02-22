@@ -104,13 +104,21 @@ async function initDatabaseSQLite() {
         price_yearly INTEGER,
         nest_id INTEGER,
         egg_id INTEGER,
-        node_id INTEGER,
-        location_id INTEGER,
+        node_ids TEXT,
+        allocation_id INTEGER,
+        docker_image TEXT,
+        startup TEXT,
+        environment TEXT,
         is_active INTEGER NOT NULL DEFAULT 1,
         sort_order INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
       )
     `);
+    // Добавить колонки если не существуют
+    try { await client.execute(`ALTER TABLE plans ADD COLUMN node_ids TEXT`); } catch (e) { /* уже есть */ }
+    try { await client.execute(`ALTER TABLE plans ADD COLUMN docker_image TEXT`); } catch (e) { /* уже есть */ }
+    try { await client.execute(`ALTER TABLE plans ADD COLUMN startup TEXT`); } catch (e) { /* уже есть */ }
+    try { await client.execute(`ALTER TABLE plans ADD COLUMN environment TEXT`); } catch (e) { /* уже есть */ }
     await client.execute(`
       CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,6 +141,7 @@ async function initDatabaseSQLite() {
         order_id INTEGER,
         ptero_server_id INTEGER,
         ptero_identifier TEXT,
+        ptero_allocation_id INTEGER,
         name TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'installing',
         cpu INTEGER,
@@ -143,6 +152,8 @@ async function initDatabaseSQLite() {
         FOREIGN KEY (order_id) REFERENCES orders(id)
       )
     `);
+    // Добавить колонку ptero_allocation_id если не существует
+    try { await client.execute(`ALTER TABLE servers ADD COLUMN ptero_allocation_id INTEGER`); } catch (e) { /* уже есть */ }
     await client.execute(`
       CREATE TABLE IF NOT EXISTS payments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -279,7 +290,10 @@ async function initDatabaseMySQL() {
         nest_id INT,
         egg_id INT,
         node_id INT,
-        location_id INT,
+        allocation_id INT,
+        docker_image TEXT,
+        startup TEXT,
+        environment TEXT,
         is_active BOOLEAN NOT NULL DEFAULT true,
         sort_order INT NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
@@ -453,7 +467,10 @@ async function initDatabasePostgres() {
         nest_id INTEGER,
         egg_id INTEGER,
         node_id INTEGER,
-        location_id INTEGER,
+        allocation_id INTEGER,
+        docker_image TEXT,
+        startup TEXT,
+        environment TEXT,
         is_active BOOLEAN NOT NULL DEFAULT true,
         sort_order INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW() NOT NULL
@@ -594,8 +611,51 @@ async function initDatabase() {
   }
 }
 
+// Синхронизация статусов серверов каждые 30 секунд
+async function syncServerStatuses() {
+  try {
+    const { db } = await import('./db.js');
+    const { servers } = await import('./schema.js');
+    const { eq } = await import('drizzle-orm');
+    const ptero = await import('./services/pterodactyl.js');
+
+    const allServers = await db.select().from(servers);
+    for (const server of allServers) {
+      if (server.pteroServerId) {
+        try {
+          const pteroStatus = await ptero.getServerStatus(server.pteroServerId);
+          let newStatus = server.status;
+
+          // Синхронизируем статусы
+          if (pteroStatus === 'running') newStatus = 'running';
+          else if (pteroStatus === 'installing') newStatus = 'installing';
+          else if (pteroStatus === 'reinstalling') newStatus = 'reinstalling';
+          else if (pteroStatus === 'offline') newStatus = 'offline';
+          else if (pteroStatus === 'starting') newStatus = 'starting';
+          else if (pteroStatus === 'stopping') newStatus = 'stopping';
+          else if (pteroStatus === 'restarting') newStatus = 'restarting';
+          else if (pteroStatus === 'suspended') newStatus = 'suspended';
+
+          if (newStatus !== server.status) {
+            await db.update(servers)
+              .set({ status: newStatus })
+              .where(eq(servers.id, server.id));
+            console.log(`Server ${server.name} status updated: ${server.status} -> ${newStatus}`);
+          }
+        } catch (e) {
+          // Игнорируем ошибки
+        }
+      }
+    }
+  } catch (error) {
+    // Игнорируем ошибки синхронизации
+  }
+}
+
 initDatabase().then(() => {
   app.listen(5000, "0.0.0.0", () => {
     console.log(`PteroBilling server running on port 5000 (using ${dbType})`);
+    // Запускаем синхронизацию статусов каждые 5 секунд
+    setInterval(syncServerStatuses, 5000);
   });
 });

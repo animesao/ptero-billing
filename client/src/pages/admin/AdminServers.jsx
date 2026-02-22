@@ -4,7 +4,32 @@ import StatusBadge, { formatDate } from '../../components/StatusBadge.jsx';
 
 export default function AdminServers() {
   const [servers, setServers] = useState([]);
-  useEffect(() => { api.admin.getServers().then(setServers).catch(() => {}); }, []);
+  const [loading, setLoading] = useState(false);
+
+  const load = () => {
+    api.admin.getServers().then(setServers).catch(() => {});
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleDelete = async (id, name) => {
+    if (!confirm(`Удалить сервер "${name}"?\n\nСервер будет удалён из Pterodactyl и базы данных.`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.admin.deleteServer(id);
+      alert('Сервер удалён');
+      load();
+    } catch (err) {
+      alert('Ошибка: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -20,6 +45,7 @@ export default function AdminServers() {
               <th className="px-4 py-3 text-left font-medium text-gray-500">Ресурсы</th>
               <th className="px-4 py-3 text-left font-medium text-gray-500">Статус</th>
               <th className="px-4 py-3 text-left font-medium text-gray-500">Создан</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">Действия</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -32,9 +58,22 @@ export default function AdminServers() {
                 <td className="px-4 py-3 text-xs text-gray-500">{s.cpu}% / {s.ramMb}MB / {s.diskMb}MB</td>
                 <td className="px-4 py-3"><StatusBadge status={s.status} /></td>
                 <td className="px-4 py-3 text-gray-500">{formatDate(s.createdAt)}</td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => handleDelete(s.id, s.name)}
+                    disabled={loading}
+                    className="text-red-600 dark:text-red-400 hover:underline text-xs disabled:opacity-50"
+                  >
+                    Удалить
+                  </button>
+                </td>
               </tr>
             ))}
-            {servers.length === 0 && <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-500">Нет серверов</td></tr>}
+            {servers.length === 0 && (
+              <tr>
+                <td colSpan="8" className="px-4 py-8 text-center text-gray-500">Нет серверов</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

@@ -19,8 +19,285 @@ router.get('/plans', async (req, res) => {
 router.get('/servers', async (req, res) => {
   try {
     const result = await db.select().from(servers).where(eq(servers.userId, req.session.userId)).orderBy(desc(servers.createdAt));
-    res.json(result);
+
+    // Синхронизируем статус для всех серверов с pteroServerId
+    for (const server of result) {
+      if (server.pteroServerId) {
+        try {
+          const pteroStatus = await ptero.getServerStatus(server.pteroServerId);
+          let newStatus = server.status;
+
+          if (pteroStatus === 'running') newStatus = 'running';
+          else if (pteroStatus === 'installing') newStatus = 'installing';
+          else if (pteroStatus === 'reinstalling') newStatus = 'reinstalling';
+          else if (pteroStatus === 'offline') newStatus = 'offline';
+          else if (pteroStatus === 'starting') newStatus = 'starting';
+          else if (pteroStatus === 'stopping') newStatus = 'stopping';
+          else if (pteroStatus === 'restarting') newStatus = 'restarting';
+          else if (pteroStatus === 'suspended') newStatus = 'suspended';
+
+          if (newStatus !== server.status) {
+            await db.update(servers)
+              .set({ status: newStatus })
+              .where(eq(servers.id, server.id));
+            console.log(`Server ${server.name} status synced: ${server.status} -> ${newStatus}`);
+          }
+        } catch (e) {
+          console.error(`Failed to sync status for server ${server.id}:`, e.message);
+        }
+      }
+    }
+
+    // Добавляем информацию о заказе (срок действия)
+    const serversWithOrder = [];
+    for (const server of result) {
+      const [order] = await db.select().from(orders).where(eq(orders.id, server.orderId));
+      serversWithOrder.push({
+        ...server,
+        orderExpiresAt: order?.expiresAt || null,
+        orderStatus: order?.status || null,
+      });
+    }
+
+    res.json(serversWithOrder);
   } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Получить настройки сервера
+router.get('/servers/:id/settings', async (req, res) => {
+  try {
+    const [server] = await db.select().from(servers).where(
+      and(eq(servers.id, parseInt(req.params.id)), eq(servers.userId, req.session.userId))
+    );
+    if (!server) return res.status(404).json({ error: 'Сервер не найден' });
+
+    // Получаем информацию о заказе и тарифе
+    const [order] = await db.select().from(orders).where(eq(orders.id, server.orderId));
+    const [plan] = await db.select().from(plans).where(eq(plans.id, order?.planId));
+
+    res.json({
+      server,
+      order: order ? {
+        expiresAt: order.expiresAt,
+        status: order.status,
+      } : null,
+      plan: plan ? {
+        cpu: plan.cpu,
+        ramMb: plan.ramMb,
+        diskMb: plan.diskMb,
+        eggId: plan.eggId,
+        nestId: plan.nestId,
+      } : null,
+    });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Обновить настройки сервера
+router.put('/servers/:id/settings', async (req, res) => {
+  try {
+    const [server] = await db.select().from(servers).where(
+      and(eq(servers.id, parseInt(req.params.id)), eq(servers.userId, req.session.userId))
+    );
+    if (!server) return res.status(404).json({ error: 'Сервер не найден' });
+
+    const { name, cpu, ramMb, diskMb } = req.body;
+    const updates = {};
+
+    if (name && name !== server.name) {
+      updates.name = name;
+    }
+
+    // Получаем тариф для проверки лимитов
+    const [order] = await db.select().from(orders).where(eq(orders.id, server.orderId));
+    const [plan] = await db.select().from(plans).where(eq(plans.id, order?.planId));
+
+    // Можно изменить только в пределах тарифа
+    if (cpu !== undefined && plan) {
+      updates.cpu = Math.min(parseInt(cpu), plan.cpu);
+    }
+    if (ramMb !== undefined && plan) {
+      updates.ramMb = Math.min(parseInt(ramMb), plan.ramMb);
+    }
+    if (diskMb !== undefined && plan) {
+      updates.diskMb = Math.min(parseInt(diskMb), plan.diskMb);
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await db.update(servers).set(updates).where(eq(servers.id, server.id));
+
+      // Обновляем в Pterodactyl если есть сервер
+      if (server.pteroServerId) {
+        try {
+          await ptero.updateServerBuild(server.pteroServerId, {
+            cpu: updates.cpu || server.cpu,
+            memory: updates.ramMb || server.ramMb,
+            disk: updates.diskMb || server.diskMb,
+          });
+        } catch (e) {
+          console.error('Error updating Pterodactyl server:', e.message);
+        }
+      }
+    }
+
+    res.json({ success: true, server: { ...server, ...updates } });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Продлить сервер
+router.post('/servers/:id/renew', async (req, res) => {
+  try {
+    const [server] = await db.select().from(servers).where(
+      and(eq(servers.id, parseInt(req.params.id)), eq(servers.userId, req.session.userId))
+    );
+    if (!server) return res.status(404).json({ error: 'Сервер не найден' });
+
+    const [order] = await db.select().from(orders).where(eq(orders.id, server.orderId));
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+
+    const [plan] = await db.select().from(plans).where(eq(plans.id, order.planId));
+    if (!plan) return res.status(404).json({ error: 'Тариф не найден' });
+
+    const [user] = await db.select().from(users).where(eq(users.id, req.session.userId));
+
+    // Определяем цену в зависимости от текущего периода
+    let amount = plan.priceMonthly;
+    let periodMonths = 1;
+    if (order.billingPeriod === 'quarterly') {
+      amount = plan.priceQuarterly || plan.priceMonthly * 3;
+      periodMonths = 3;
+    } else if (order.billingPeriod === 'yearly') {
+      amount = plan.priceYearly || plan.priceMonthly * 12;
+      periodMonths = 12;
+    }
+
+    if (user.balance < amount) {
+      return res.status(400).json({ error: 'Недостаточно средств на балансе' });
+    }
+
+    // Списываем средства
+    await db.update(users).set({ balance: user.balance - amount }).where(eq(users.id, req.session.userId));
+
+    // Продлеваем заказ
+    const newExpiresAt = new Date(order.expiresAt || new Date());
+    newExpiresAt.setMonth(newExpiresAt.getMonth() + periodMonths);
+
+    await db.update(orders).set({
+      expiresAt: newExpiresAt.toISOString(),
+      status: 'active',
+    }).where(eq(orders.id, order.id));
+
+    // Создаём запись о платеже
+    await db.insert(payments).values({
+      orderId: order.id,
+      userId: req.session.userId,
+      provider: 'balance',
+      amount,
+      status: 'completed',
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({ success: true, newExpiresAt: newExpiresAt.toISOString() });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Получить доступные яйца для сервера
+router.get('/servers/:id/eggs', async (req, res) => {
+  try {
+    const [server] = await db.select().from(servers).where(
+      and(eq(servers.id, parseInt(req.params.id)), eq(servers.userId, req.session.userId))
+    );
+    if (!server) return res.status(404).json({ error: 'Сервер не найден' });
+
+    // Получаем текущий план сервера
+    const [order] = await db.select().from(orders).where(eq(orders.id, server.orderId));
+    const [plan] = await db.select().from(plans).where(eq(plans.id, order?.planId));
+
+    if (!plan) return res.status(404).json({ error: 'Тариф не найден' });
+
+    // Получаем все яйца из того же гнезда (nest)
+    const eggs = await ptero.getEggsInNest(plan.nestId);
+
+    res.json({
+      currentEggId: plan.eggId,
+      eggs,
+    });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Сменить яйцо сервера
+router.post('/servers/:id/change-egg', async (req, res) => {
+  try {
+    const { eggId } = req.body;
+    if (!eggId) return res.status(400).json({ error: 'Не указано яйцо' });
+
+    const [server] = await db.select().from(servers).where(
+      and(eq(servers.id, parseInt(req.params.id)), eq(servers.userId, req.session.userId))
+    );
+    if (!server) return res.status(404).json({ error: 'Сервер не найден' });
+
+    if (!server.pteroServerId) {
+      return res.status(400).json({ error: 'Сервер ещё не создан в Pterodactyl' });
+    }
+
+    // Получаем информацию о текущем заказе
+    const [order] = await db.select().from(orders).where(eq(orders.id, server.orderId));
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+
+    const [plan] = await db.select().from(plans).where(eq(plans.id, order.planId));
+    if (!plan) return res.status(404).json({ error: 'Тариф не найден' });
+
+    // Получаем информацию о новом яйце
+    const egg = await ptero.getEgg(plan.nestId, eggId);
+    if (!egg) return res.status(404).json({ error: 'Яйцо не найдено' });
+
+    // Получаем ID пользователя в Pterodactyl
+    const [user] = await db.select().from(users).where(eq(users.id, req.session.userId));
+    const pteroUserId = user.pteroUserId || 1;
+
+    // Запускаем переустановку сервера в Pterodactyl с новым яйцом (удаление + создание)
+    // Используем allocationId из базы данных
+    const result = await ptero.reinstallServerWithEgg(server.pteroServerId, {
+      egg: eggId,
+      dockerImage: egg.attributes?.docker_image || plan.dockerImage,
+      startup: egg.attributes?.startup || plan.startup,
+      serverName: server.name,
+      userId: pteroUserId,
+      nodeId: plan.nodeId,
+      allocationId: server.pteroAllocationId || plan.allocationId, // Берём из БД сервера
+      limits: {
+        memory: plan.ramMb || server.ramMb,
+        swap: 0,
+        disk: plan.diskMb || server.diskMb,
+        io: 500,
+        cpu: plan.cpu || server.cpu,
+      },
+      featureLimits: {
+        databases: plan.dbLimit || 0,
+        backups: plan.backupLimit || 0,
+        allocations: plan.slots || 1,
+      },
+    });
+
+    // Обновляем pteroServerId и identifier в БД
+    await db.update(servers).set({
+      pteroServerId: result.pteroServerId,
+      pteroIdentifier: result.identifier,
+      pteroAllocationId: result.allocationId || server.pteroAllocationId,
+      status: 'installing',
+    }).where(eq(servers.id, server.id));
+
+    // Обновляем план в БД с новыми настройками яйца
+    await db.update(plans).set({
+      eggId: eggId,
+      dockerImage: egg.attributes?.docker_image || plan.dockerImage,
+      startup: egg.attributes?.startup || plan.startup,
+    }).where(eq(plans.id, plan.id));
+
+    res.json({ success: true, message: 'Сервер переустановлен с новым ядром. Все данные удалены.' });
+  } catch (error) {
+    console.error('Change egg error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 router.get('/orders', async (req, res) => {
@@ -32,9 +309,15 @@ router.get('/orders', async (req, res) => {
 
 router.post('/orders', async (req, res) => {
   try {
-    const { planId, billingPeriod, serverName } = req.body;
-    const [plan] = await db.select().from(plans).where(eq(plans.id, parseInt(planId)));
+    const { planId, billingPeriod, serverName, eggId } = req.body;
+    let [plan] = await db.select().from(plans).where(eq(plans.id, parseInt(planId)));
     if (!plan) return res.status(404).json({ error: 'Тариф не найден' });
+
+    // Если указано яйцо, используем его для создания сервера
+    let planToUse = plan;
+    if (eggId && eggId !== plan.eggId) {
+      planToUse = { ...plan, eggId };
+    }
 
     let amount = plan.priceMonthly;
     if (billingPeriod === 'quarterly' && plan.priceQuarterly) amount = plan.priceQuarterly;
@@ -81,17 +364,37 @@ router.post('/orders', async (req, res) => {
       const pteroResult = await ptero.createServer({
         name: sName,
         userId: req.session.userId,
-        plan,
+        plan: planToUse,
         pteroUserId: user.pteroUserId || 1,
       });
+
+      const pteroServerId = pteroResult.attributes?.id || null;
+      const pteroIdentifier = pteroResult.attributes?.identifier || null;
+
+      // Получаем allocation ID из ответа Pterodactyl
+      const pteroAllocationId = pteroResult.relationships?.allocations?.data?.[0]?.id || null;
+
+      // Получаем статус сервера из Pterodactyl
+      let status = 'installing';
+      try {
+        const pteroStatus = await ptero.getServerStatus(pteroServerId);
+        console.log('Pterodactyl server status:', pteroStatus);
+        if (pteroStatus === 'installing') status = 'installing';
+        else if (pteroStatus === 'running') status = 'running';
+        else if (pteroStatus === 'offline') status = 'offline';
+        else if (pteroStatus === 'suspended') status = 'suspended';
+      } catch (e) {
+        console.error('Error getting server status:', e.message);
+      }
 
       serverRecord = await db.insert(servers).values({
         userId: req.session.userId,
         orderId: order.id,
-        pteroServerId: pteroResult.attributes?.id || null,
-        pteroIdentifier: pteroResult.attributes?.identifier || null,
+        pteroServerId,
+        pteroIdentifier,
+        pteroAllocationId, // Сохраняем ID аллокации
         name: sName,
-        status: 'installing',
+        status,
         cpu: plan.cpu,
         ramMb: plan.ramMb,
         diskMb: plan.diskMb,

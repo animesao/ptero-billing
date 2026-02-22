@@ -34,7 +34,8 @@ router.post('/register', async (req, res) => {
         email,
         username,
         firstName: username,
-        lastName: 'User'
+        lastName: 'User',
+        password, // Передаём пароль в Pterodactyl
       });
       pteroUserId = pteroUser.attributes.id;
     } catch (pteroError) {

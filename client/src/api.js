@@ -30,10 +30,18 @@ export const api = {
   getTicketCategories: () => request('/api/user/ticket-categories'),
   updateProfile: (d) => request('/api/user/profile', { method: 'PUT', body: JSON.stringify(d) }),
 
+  // Настройки сервера
+  getUserServerSettings: (id) => request(`/api/user/servers/${id}/settings`),
+  updateUserServerSettings: (id, d) => request(`/api/user/servers/${id}/settings`, { method: 'PUT', body: JSON.stringify(d) }),
+  renewUserServer: (id) => request(`/api/user/servers/${id}/renew`, { method: 'POST' }),
+  getServerEggs: (id) => request(`/api/user/servers/${id}/eggs`),
+  changeServerEgg: (id, d) => request(`/api/user/servers/${id}/change-egg`, { method: 'POST', body: JSON.stringify(d) }),
+
   admin: {
     getStats: () => request('/api/admin/stats'),
     getUsers: () => request('/api/admin/users'),
     updateUser: (id, d) => request(`/api/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
+    deleteUser: (id) => request(`/api/admin/users/${id}`, { method: 'DELETE' }),
     getPlans: () => request('/api/admin/plans'),
     createPlan: (d) => request('/api/admin/plans', { method: 'POST', body: JSON.stringify(d) }),
     updatePlan: (id, d) => request(`/api/admin/plans/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
@@ -41,6 +49,7 @@ export const api = {
     getOrders: () => request('/api/admin/orders'),
     updateOrder: (id, d) => request(`/api/admin/orders/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
     getServers: () => request('/api/admin/servers'),
+    deleteServer: (id) => request(`/api/admin/servers/${id}`, { method: 'DELETE' }),
     getPayments: () => request('/api/admin/payments'),
     getTickets: () => request('/api/admin/tickets'),
     getTicket: (id) => request(`/api/admin/tickets/${id}`),

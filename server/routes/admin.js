@@ -50,6 +50,23 @@ router.patch('/users/:id', async (req, res) => {
     const [user] = await db.select().from(users).where(eq(users.id, userId));
     if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
 
+    // Обработка изменения статуса - синхронизация с Pterodactyl
+    if (status && status !== user.status) {
+      if (user.pteroUserId) {
+        try {
+          if (status === 'blocked') {
+            await ptero.suspendUser(user.pteroUserId);
+            console.log(`User ${user.pteroUserId} suspended in Pterodactyl`);
+          } else if (status === 'active' && user.status === 'blocked') {
+            await ptero.unsuspendUser(user.pteroUserId);
+            console.log(`User ${user.pteroUserId} unsuspended in Pterodactyl`);
+          }
+        } catch (pteroError) {
+          console.error('Pterodactyl user status error:', pteroError.message);
+        }
+      }
+    }
+
     // Обработка изменения баланса
     if (balanceChange !== undefined) {
       const change = parseInt(balanceChange);
@@ -93,6 +110,72 @@ router.patch('/users/:id', async (req, res) => {
   }
 });
 
+// Удалить пользователя
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    // Удаляем серверы пользователя в Pterodactyl
+    const userServers = await db.select().from(servers).where(eq(servers.userId, userId));
+    for (const server of userServers) {
+      if (server.pteroServerId) {
+        try {
+          await ptero.deleteServer(server.pteroServerId);
+          console.log(`Server ${server.pteroServerId} deleted from Pterodactyl`);
+        } catch (e) {
+          console.error('Error deleting server:', e.message);
+        }
+      }
+    }
+
+    // Удаляем все серверы из БД
+    await db.delete(servers).where(eq(servers.userId, userId));
+
+    // Удаляем пользователя в Pterodactyl
+    if (user.pteroUserId) {
+      try {
+        await ptero.deleteUser(user.pteroUserId);
+        console.log(`User ${user.pteroUserId} deleted from Pterodactyl`);
+      } catch (pteroError) {
+        console.error('Pterodactyl delete user error:', pteroError.message);
+      }
+    }
+
+    // Удаляем платежи
+    await db.delete(payments).where(eq(payments.userId, userId));
+
+    // Удаляем заказы
+    await db.delete(orders).where(eq(orders.userId, userId));
+
+    // Удаляем тикеты (и сообщения)
+    const userTickets = await db.select().from(tickets).where(eq(tickets.userId, userId));
+    for (const ticket of userTickets) {
+      await db.delete(ticketMessages).where(eq(ticketMessages.ticketId, ticket.id));
+    }
+    await db.delete(tickets).where(eq(tickets.userId, userId));
+
+    // Удаляем пользователя из БД
+    await db.delete(users).where(eq(users.id, userId));
+
+    // Создаём запись в audit log
+    await db.insert(auditLogs).values({
+      actorId: req.session.userId,
+      action: 'user_delete',
+      entity: 'user',
+      entityId: userId,
+      details: JSON.stringify({ email: user.email, username: user.username, pteroUserId: user.pteroUserId }),
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/plans', async (req, res) => {
   try {
     const result = await db.select().from(plans).orderBy(plans.sortOrder);
@@ -102,36 +185,60 @@ router.get('/plans', async (req, res) => {
 
 router.post('/plans', async (req, res) => {
   try {
-    const { name, description, cpu, ramMb, diskMb, slots, dbLimit, backupLimit, priceMonthly, priceQuarterly, priceYearly, nestId, eggId, nodeId, locationId, sortOrder } = req.body;
+    const { name, description, cpu, ramMb, diskMb, slots, dbLimit, backupLimit, priceMonthly, priceQuarterly, priceYearly, nestId, eggId, nodeIds, allocationId, dockerImage, startup, environment, isActive, sortOrder } = req.body;
     const now = new Date().toISOString();
+    const parseIntOrNull = (val) => {
+      if (!val || val === '') return null;
+      const num = parseInt(val);
+      return isNaN(num) ? null : num;
+    };
     const [plan] = await db.insert(plans).values({
       name, description, cpu: parseInt(cpu), ramMb: parseInt(ramMb), diskMb: parseInt(diskMb),
       slots: parseInt(slots || 0), dbLimit: parseInt(dbLimit || 0), backupLimit: parseInt(backupLimit || 0),
-      priceMonthly: parseInt(priceMonthly), priceQuarterly: priceQuarterly ? parseInt(priceQuarterly) : null,
-      priceYearly: priceYearly ? parseInt(priceYearly) : null,
-      nestId: nestId ? parseInt(nestId) : null, eggId: eggId ? parseInt(eggId) : null,
-      nodeId: nodeId ? parseInt(nodeId) : null, locationId: locationId ? parseInt(locationId) : null,
+      priceMonthly: parseInt(priceMonthly), priceQuarterly: parseIntOrNull(priceQuarterly),
+      priceYearly: parseIntOrNull(priceYearly),
+      nestId: parseIntOrNull(nestId), eggId: parseIntOrNull(eggId),
+      nodeIds: nodeIds || null, // JSON строка с массивом ID нод
+      allocationId: parseIntOrNull(allocationId),
+      dockerImage, startup, environment: environment ? JSON.stringify(environment) : null,
+      isActive: isActive !== undefined ? isActive : true,
       sortOrder: parseInt(sortOrder || 0),
       createdAt: now,
     }).returning();
+    console.log('Plan created:', JSON.stringify(plan));
     res.json(plan);
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) {
+    console.error('Create plan error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 router.put('/plans/:id', async (req, res) => {
   try {
-    const { name, description, cpu, ramMb, diskMb, slots, dbLimit, backupLimit, priceMonthly, priceQuarterly, priceYearly, nestId, eggId, nodeId, locationId, isActive, sortOrder } = req.body;
+    const { name, description, cpu, ramMb, diskMb, slots, dbLimit, backupLimit, priceMonthly, priceQuarterly, priceYearly, nestId, eggId, nodeIds, allocationId, dockerImage, startup, environment, isActive, sortOrder } = req.body;
+    const parseIntOrNull = (val) => {
+      if (!val || val === '') return null;
+      const num = parseInt(val);
+      return isNaN(num) ? null : num;
+    };
     const [plan] = await db.update(plans).set({
       name, description, cpu: parseInt(cpu), ramMb: parseInt(ramMb), diskMb: parseInt(diskMb),
       slots: parseInt(slots || 0), dbLimit: parseInt(dbLimit || 0), backupLimit: parseInt(backupLimit || 0),
-      priceMonthly: parseInt(priceMonthly), priceQuarterly: priceQuarterly ? parseInt(priceQuarterly) : null,
-      priceYearly: priceYearly ? parseInt(priceYearly) : null,
-      nestId: nestId ? parseInt(nestId) : null, eggId: eggId ? parseInt(eggId) : null,
-      nodeId: nodeId ? parseInt(nodeId) : null, locationId: locationId ? parseInt(locationId) : null,
-      isActive: isActive !== undefined ? isActive : true, sortOrder: parseInt(sortOrder || 0),
+      priceMonthly: parseInt(priceMonthly), priceQuarterly: parseIntOrNull(priceQuarterly),
+      priceYearly: parseIntOrNull(priceYearly),
+      nestId: parseIntOrNull(nestId), eggId: parseIntOrNull(eggId),
+      nodeIds: nodeIds || null,
+      allocationId: parseIntOrNull(allocationId),
+      dockerImage, startup, environment: environment ? JSON.stringify(environment) : null,
+      isActive: isActive !== undefined ? isActive : true,
+      sortOrder: parseInt(sortOrder || 0),
     }).where(eq(plans.id, parseInt(req.params.id))).returning();
+    console.log('Plan updated:', JSON.stringify(plan));
     res.json(plan);
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) {
+    console.error('Update plan error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 router.delete('/plans/:id', async (req, res) => {
@@ -161,6 +268,43 @@ router.get('/servers', async (req, res) => {
     const result = await db.select().from(servers).orderBy(desc(servers.createdAt));
     res.json(result);
   } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+router.delete('/servers/:id', async (req, res) => {
+  try {
+    const serverId = parseInt(req.params.id);
+    const [server] = await db.select().from(servers).where(eq(servers.id, serverId));
+    if (!server) return res.status(404).json({ error: 'Сервер не найден' });
+
+    // Удаляем сервер в Pterodactyl если есть pteroServerId
+    if (server.pteroServerId) {
+      try {
+        await ptero.deleteServer(server.pteroServerId);
+        console.log(`Server ${server.pteroServerId} deleted from Pterodactyl`);
+      } catch (pteroError) {
+        console.error('Error deleting server from Pterodactyl:', pteroError.message);
+        // Продолжаем удаление из БД даже если Pterodactyl вернул ошибку
+      }
+    }
+
+    // Удаляем сервер из БД
+    await db.delete(servers).where(eq(servers.id, serverId));
+
+    // Создаём запись в audit log
+    await db.insert(auditLogs).values({
+      actorId: req.session.userId,
+      action: 'server_delete',
+      entity: 'server',
+      entityId: serverId,
+      details: JSON.stringify({ name: server.name, pteroServerId: server.pteroServerId }),
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete server error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 router.get('/payments', async (req, res) => {

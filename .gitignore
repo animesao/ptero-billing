@@ -1,6 +1,4 @@
 node_modules/
-client/dist/
-uploads/
-.env
+.cofig
 *.log
 pterobilling.db
