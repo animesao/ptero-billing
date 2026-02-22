@@ -50,6 +50,7 @@ router.post('/register', async (req, res) => {
       role: 'user',
       status: 'active',
       pteroUserId: pteroUserId,
+      createdAt: new Date().toISOString(),
     }).returning();
 
     req.session.userId = user.id;

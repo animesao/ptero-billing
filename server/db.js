@@ -1,12 +1,19 @@
 import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
-import { drizzle as drizzleMysql } from "drizzle-orm/mysql2/promise";
-import { drizzle as drizzleSqlite } from "drizzle-orm/better-sqlite3";
+import { drizzle as drizzleMysql } from "drizzle-orm/mysql2";
+import { drizzle as drizzleLibsql } from "drizzle-orm/libsql";
+import { createClient } from "@libsql/client";
 import postgres from "postgres";
 import mysql from "mysql2/promise";
-import Database from "better-sqlite3";
 import * as schema from "./schema.js";
+import dotenv from "dotenv";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
-const dbType = process.env.DATABASE_TYPE || "sqlite";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+dotenv.config({ path: join(__dirname, "..", ".env"), quiet: true });
+
+const dbType = (process.env.DATABASE_TYPE || "sqlite").trim();
 
 let db;
 let client;
@@ -26,10 +33,12 @@ if (dbType === "mysql") {
   client = postgres(connectionString);
   db = drizzlePostgres(client, { schema });
 } else {
-  // SQLite by default
-  const dbPath = process.env.SQLITE_DB_PATH || "./pterobilling.db";
-  client = new Database(dbPath);
-  db = drizzleSqlite(client, { schema });
+  // SQLite (libsql) by default
+  const dbPath = "file:./pterobilling.db";
+  client = createClient({
+    url: dbPath,
+  });
+  db = drizzleLibsql(client, { schema });
 }
 
 export { db, client, dbType };

@@ -26,6 +26,68 @@ function getClient(config) {
   });
 }
 
+// Получить все ноды с деталями
+export async function getNodes() {
+  const config = await getConfig();
+  const client = getClient(config);
+  const response = await client.get('/nodes?per_page=100');
+  return response.data.data || [];
+}
+
+// Получить все локации
+export async function getLocations() {
+  const config = await getConfig();
+  const client = getClient(config);
+  const response = await client.get('/locations?per_page=100');
+  return response.data.data || [];
+}
+
+// Получить все гнёзда с яйцами
+export async function getNestsWithEggs() {
+  const config = await getConfig();
+  const client = getClient(config);
+  const nestsResponse = await client.get('/nests?per_page=100');
+  const nests = nestsResponse.data.data || [];
+
+  const result = [];
+  for (const nest of nests) {
+    try {
+      const eggsResponse = await client.get(`/nests/${nest.attributes.id}/eggs?per_page=100`);
+      const eggs = eggsResponse.data.data || [];
+      result.push({
+        id: nest.attributes.id,
+        name: nest.attributes.name,
+        description: nest.attributes.description,
+        eggs: eggs.map(egg => ({
+          id: egg.attributes.id,
+          name: egg.attributes.name,
+          description: egg.attributes.description,
+          dockerImage: egg.attributes.docker_image,
+          startup: egg.attributes.startup,
+          environment: egg.attributes.environment,
+        })),
+      });
+    } catch (e) {
+      console.error(`Failed to fetch eggs for nest ${nest.attributes.id}:`, e.message);
+      result.push({
+        id: nest.attributes.id,
+        name: nest.attributes.name,
+        description: nest.attributes.description,
+        eggs: [],
+      });
+    }
+  }
+  return result;
+}
+
+// Получить аллокации для ноды
+export async function getNodeAllocations(nodeId) {
+  const config = await getConfig();
+  const client = getClient(config);
+  const response = await client.get(`/nodes/${nodeId}/allocations?per_page=100`);
+  return response.data.data || [];
+}
+
 export async function createServer({ name, userId, plan, pteroUserId }) {
   const config = await getConfig();
   const client = getClient(config);
@@ -33,13 +95,10 @@ export async function createServer({ name, userId, plan, pteroUserId }) {
   const payload = {
     name: name,
     user: pteroUserId,
-    egg: plan.eggId || parseInt(config['ptero_default_egg'] || '1'),
-    docker_image: config['ptero_docker_image'] || 'ghcr.io/pterodactyl/yolks:java_17',
-    startup: config['ptero_startup'] || 'java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar server.jar',
-    environment: {
-      SERVER_JARFILE: 'server.jar',
-      VANILLA_VERSION: 'latest',
-    },
+    egg: plan.eggId,
+    docker_image: plan.dockerImage || 'ghcr.io/pterodactyl/yolks:java_17',
+    startup: plan.startup || 'java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar server.jar',
+    environment: plan.environment || {},
     limits: {
       memory: plan.ramMb,
       swap: 0,
@@ -53,21 +112,28 @@ export async function createServer({ name, userId, plan, pteroUserId }) {
       allocations: plan.slots || 1,
     },
     allocation: {
-      default: parseInt(config['ptero_default_allocation'] || '1'),
+      default: plan.allocationId || null,
     },
   };
 
   if (plan.nestId) payload.nest = plan.nestId;
   if (plan.nodeId) {
     payload.deploy = {
-      locations: [plan.locationId || parseInt(config['ptero_default_location'] || '1')],
+      locations: [plan.nodeId],
       dedicated_ip: false,
       port_range: [],
     };
   }
 
-  const response = await client.post('/servers', payload);
-  return response.data;
+  try {
+    const response = await client.post('/servers', payload);
+    return response.data;
+  } catch (error) {
+    if (error.response?.data) {
+      console.error('Pterodactyl API error details:', JSON.stringify(error.response.data, null, 2));
+    }
+    throw error;
+  }
 }
 
 export async function deleteServer(pteroServerId) {

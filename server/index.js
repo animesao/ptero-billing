@@ -1,8 +1,10 @@
 import express from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
 import { db, client, dbType } from "./db.js";
 import { users } from "./schema.js";
 import { eq } from "drizzle-orm";
@@ -11,10 +13,18 @@ import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
 import userRoutes from "./routes/user.js";
 
+dotenv.config();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// CORS setup for development
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:5000', 'http://127.0.0.1:5173', 'http://127.0.0.1:5000'],
+  credentials: true,
+}));
 
 // Session store setup depends on DB type
 let sessionStore;
@@ -25,7 +35,7 @@ if (dbType === "postgres") {
     createTableIfMissing: true,
   });
 } else {
-  // For MySQL, use memory store for simplicity or implement mysql store
+  // For MySQL and SQLite, use memory store for simplicity
   const sessionMemoryStore = new session.MemoryStore();
   sessionStore = sessionMemoryStore;
 }
@@ -43,7 +53,7 @@ app.use(
       maxAge: 30 * 24 * 60 * 60 * 1000,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: 'lax',
     },
   }),
 );
@@ -62,6 +72,181 @@ app.get("/{*path}", (req, res) => {
   }
   res.sendFile(path.join(__dirname, "..", "client", "dist", "index.html"));
 });
+
+async function initDatabaseSQLite() {
+  try {
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL UNIQUE,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'user',
+        status TEXT NOT NULL DEFAULT 'active',
+        ptero_user_id INTEGER,
+        balance INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS plans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        cpu INTEGER NOT NULL,
+        ram_mb INTEGER NOT NULL,
+        disk_mb INTEGER NOT NULL,
+        slots INTEGER NOT NULL DEFAULT 0,
+        db_limit INTEGER NOT NULL DEFAULT 0,
+        backup_limit INTEGER NOT NULL DEFAULT 0,
+        price_monthly INTEGER NOT NULL,
+        price_quarterly INTEGER,
+        price_yearly INTEGER,
+        nest_id INTEGER,
+        egg_id INTEGER,
+        node_id INTEGER,
+        location_id INTEGER,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        plan_id INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        billing_period TEXT NOT NULL DEFAULT 'monthly',
+        amount INTEGER NOT NULL,
+        currency TEXT NOT NULL DEFAULT 'RUB',
+        expires_at TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (plan_id) REFERENCES plans(id)
+      )
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS servers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        order_id INTEGER,
+        ptero_server_id INTEGER,
+        ptero_identifier TEXT,
+        name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'installing',
+        cpu INTEGER,
+        ram_mb INTEGER,
+        disk_mb INTEGER,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (order_id) REFERENCES orders(id)
+      )
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER,
+        user_id INTEGER NOT NULL,
+        provider TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        currency TEXT NOT NULL DEFAULT 'RUB',
+        status TEXT NOT NULL DEFAULT 'pending',
+        external_id TEXT,
+        metadata TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (order_id) REFERENCES orders(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS ticket_categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        sort_order INTEGER NOT NULL DEFAULT 0
+      )
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS tickets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        category_id INTEGER,
+        subject TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'open',
+        priority TEXT NOT NULL DEFAULT 'normal',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (category_id) REFERENCES ticket_categories(id)
+      )
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS ticket_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticket_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        body TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (ticket_id) REFERENCES tickets(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS ticket_attachments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id INTEGER NOT NULL,
+        filename TEXT NOT NULL,
+        path TEXT NOT NULL,
+        mime_type TEXT,
+        size INTEGER,
+        FOREIGN KEY (message_id) REFERENCES ticket_messages(id)
+      )
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        key TEXT NOT NULL UNIQUE,
+        value TEXT,
+        "group" TEXT NOT NULL DEFAULT 'general'
+      )
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        actor_id INTEGER,
+        action TEXT NOT NULL,
+        entity TEXT,
+        entity_id INTEGER,
+        details TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (actor_id) REFERENCES users(id)
+      )
+    `);
+
+    const adminCheck = await db
+      .select()
+      .from(users)
+      .where(eq(users.role, "admin"))
+      .limit(1);
+    if (adminCheck.length === 0) {
+      const hash = await bcrypt.hash("admin123", 10);
+      await db.insert(users).values({
+        email: "admin@pterobilling.local",
+        username: "admin",
+        passwordHash: hash,
+        role: "admin",
+        status: "active",
+        createdAt: new Date().toISOString(),
+      });
+      console.log("Admin created: admin@pterobilling.local / admin123");
+    }
+
+    console.log("SQLite database initialized");
+  } catch (error) {
+    console.error("SQLite database init error:", error);
+  }
+}
 
 async function initDatabaseMySQL() {
   try {
@@ -226,6 +411,7 @@ async function initDatabaseMySQL() {
         passwordHash: hash,
         role: "admin",
         status: "active",
+        createdAt: new Date().toISOString(),
       });
       console.log("Admin created: admin@pterobilling.local / admin123");
     }
@@ -387,6 +573,7 @@ async function initDatabasePostgres() {
         passwordHash: hash,
         role: "admin",
         status: "active",
+        createdAt: new Date().toISOString(),
       });
       console.log("Admin created: admin@pterobilling.local / admin123");
     }
@@ -400,8 +587,10 @@ async function initDatabasePostgres() {
 async function initDatabase() {
   if (dbType === "mysql") {
     await initDatabaseMySQL();
-  } else {
+  } else if (dbType === "postgres") {
     await initDatabasePostgres();
+  } else {
+    await initDatabaseSQLite();
   }
 }
 

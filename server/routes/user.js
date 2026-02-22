@@ -49,47 +49,69 @@ router.post('/orders', async (req, res) => {
     const expiresAt = new Date();
     expiresAt.setMonth(expiresAt.getMonth() + periodMonths);
 
-    const result = await client.begin(async (tx) => {
-      const [order] = await tx`
-        INSERT INTO orders (user_id, plan_id, status, billing_period, amount, expires_at)
-        VALUES (${req.session.userId}, ${plan.id}, 'active', ${billingPeriod || 'monthly'}, ${amount}, ${expiresAt})
-        RETURNING *
-      `;
+    // Update user balance
+    await db.update(users).set({ balance: user.balance - amount }).where(eq(users.id, req.session.userId));
 
-      await tx`UPDATE users SET balance = balance - ${amount} WHERE id = ${req.session.userId} AND balance >= ${amount}`;
+    const now = new Date().toISOString();
+    // Create order
+    const [order] = await db.insert(orders).values({
+      userId: req.session.userId,
+      planId: plan.id,
+      status: 'active',
+      billingPeriod: billingPeriod || 'monthly',
+      amount,
+      expiresAt: expiresAt.toISOString(),
+      createdAt: now,
+    }).returning();
 
-      await tx`
-        INSERT INTO payments (order_id, user_id, provider, amount, status)
-        VALUES (${order.id}, ${req.session.userId}, 'balance', ${amount}, 'completed')
-      `;
-
-      const sName = serverName || `${plan.name}-${order.id}`;
-      let serverRecord;
-      try {
-        const pteroResult = await ptero.createServer({
-          name: sName,
-          userId: req.session.userId,
-          plan,
-          pteroUserId: 1,
-        });
-
-        [serverRecord] = await tx`
-          INSERT INTO servers (user_id, order_id, ptero_server_id, ptero_identifier, name, status, cpu, ram_mb, disk_mb)
-          VALUES (${req.session.userId}, ${order.id}, ${pteroResult.attributes?.id || null}, ${pteroResult.attributes?.identifier || null}, ${sName}, 'installing', ${plan.cpu}, ${plan.ramMb}, ${plan.diskMb})
-          RETURNING *
-        `;
-      } catch (pteroError) {
-        [serverRecord] = await tx`
-          INSERT INTO servers (user_id, order_id, name, status, cpu, ram_mb, disk_mb)
-          VALUES (${req.session.userId}, ${order.id}, ${sName}, 'pending_setup', ${plan.cpu}, ${plan.ramMb}, ${plan.diskMb})
-          RETURNING *
-        `;
-      }
-
-      return { order, server: serverRecord };
+    // Create payment record
+    await db.insert(payments).values({
+      orderId: order.id,
+      userId: req.session.userId,
+      provider: 'balance',
+      amount,
+      status: 'completed',
+      createdAt: now,
     });
 
-    res.json(result);
+    // Create server
+    const sName = serverName || `${plan.name}-${order.id}`;
+    let serverRecord;
+    try {
+      const pteroResult = await ptero.createServer({
+        name: sName,
+        userId: req.session.userId,
+        plan,
+        pteroUserId: user.pteroUserId || 1,
+      });
+
+      serverRecord = await db.insert(servers).values({
+        userId: req.session.userId,
+        orderId: order.id,
+        pteroServerId: pteroResult.attributes?.id || null,
+        pteroIdentifier: pteroResult.attributes?.identifier || null,
+        name: sName,
+        status: 'installing',
+        cpu: plan.cpu,
+        ramMb: plan.ramMb,
+        diskMb: plan.diskMb,
+        createdAt: now,
+      }).returning();
+    } catch (pteroError) {
+      console.error('Pterodactyl error:', pteroError);
+      serverRecord = await db.insert(servers).values({
+        userId: req.session.userId,
+        orderId: order.id,
+        name: sName,
+        status: 'pending_setup',
+        cpu: plan.cpu,
+        ramMb: plan.ramMb,
+        diskMb: plan.diskMb,
+        createdAt: now,
+      }).returning();
+    }
+
+    res.json({ order, server: serverRecord[0] });
   } catch (error) {
     console.error('Order error:', error);
     res.status(500).json({ error: error.message });
@@ -117,6 +139,7 @@ router.post('/balance/add', async (req, res) => {
       provider: 'manual',
       amount: amt,
       status: 'completed',
+      createdAt: new Date().toISOString(),
     });
 
     res.json({ balance: user.balance + amt });
@@ -135,17 +158,21 @@ router.post('/tickets', async (req, res) => {
     const { subject, categoryId, body, priority } = req.body;
     if (!subject || !body) return res.status(400).json({ error: 'Тема и сообщение обязательны' });
 
+    const now = new Date().toISOString();
     const [ticket] = await db.insert(tickets).values({
       userId: req.session.userId,
       categoryId: categoryId ? parseInt(categoryId) : null,
       subject,
       priority: priority || 'normal',
+      createdAt: now,
+      updatedAt: now,
     }).returning();
 
     await db.insert(ticketMessages).values({
       ticketId: ticket.id,
       userId: req.session.userId,
       body,
+      createdAt: now,
     });
 
     res.json(ticket);
@@ -171,12 +198,14 @@ router.post('/tickets/:id/reply', async (req, res) => {
     );
     if (!ticket) return res.status(404).json({ error: 'Тикет не найден' });
 
+    const now = new Date().toISOString();
     const [msg] = await db.insert(ticketMessages).values({
       ticketId: ticket.id,
       userId: req.session.userId,
       body,
+      createdAt: now,
     }).returning();
-    await db.update(tickets).set({ updatedAt: new Date(), status: 'open' }).where(eq(tickets.id, ticket.id));
+    await db.update(tickets).set({ updatedAt: now, status: 'open' }).where(eq(tickets.id, ticket.id));
     res.json(msg);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });

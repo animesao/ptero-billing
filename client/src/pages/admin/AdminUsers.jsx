@@ -5,6 +5,9 @@ import StatusBadge, { formatPrice, formatDate } from '../../components/StatusBad
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [editing, setEditing] = useState(null);
+  const [balanceChange, setBalanceChange] = useState({});
+  const [balanceReason, setBalanceReason] = useState({});
+  const [saving, setSaving] = useState(null);
 
   useEffect(() => { api.admin.getUsers().then(setUsers).catch(() => {}); }, []);
 
@@ -13,7 +16,29 @@ export default function AdminUsers() {
       await api.admin.updateUser(id, data);
       api.admin.getUsers().then(setUsers);
       setEditing(null);
-    } catch {}
+      setBalanceChange({});
+      setBalanceReason({});
+    } catch (err) {
+      alert('Ошибка: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const handleBalanceChange = async (id) => {
+    if (!balanceChange[id] || balanceChange[id] === '0') return;
+    setSaving(id);
+    try {
+      await api.admin.updateUser(id, {
+        balanceChange: parseInt(balanceChange[id]),
+        balanceReason: balanceReason[id] || '',
+      });
+      api.admin.getUsers().then(setUsers);
+      setBalanceChange({ ...balanceChange, [id]: '' });
+      setBalanceReason({ ...balanceReason, [id]: '' });
+    } catch (err) {
+      alert('Ошибка: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setSaving(null);
+    }
   };
 
   return (
@@ -29,7 +54,7 @@ export default function AdminUsers() {
               <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Роль</th>
               <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Статус</th>
               <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Баланс</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Регистрация</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Изменить баланс</th>
               <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Действия</th>
             </tr>
           </thead>
@@ -55,7 +80,34 @@ export default function AdminUsers() {
                     </select>
                   ) : <StatusBadge status={u.status} />}
                 </td>
-                <td className="px-4 py-3">{formatPrice(u.balance)}</td>
+                <td className="px-4 py-3 font-medium">{formatPrice(u.balance)}</td>
+                <td className="px-4 py-3">
+                  <div className="space-y-1">
+                    <div className="flex gap-1">
+                      <input
+                        type="number"
+                        placeholder="Сумма (+/-)"
+                        value={balanceChange[u.id] || ''}
+                        onChange={e => setBalanceChange({ ...balanceChange, [u.id]: e.target.value })}
+                        className="w-24 text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                      />
+                      <button
+                        onClick={() => handleBalanceChange(u.id)}
+                        disabled={saving === u.id || !balanceChange[u.id]}
+                        className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {saving === u.id ? '...' : 'OK'}
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Причина"
+                      value={balanceReason[u.id] || ''}
+                      onChange={e => setBalanceReason({ ...balanceReason, [u.id]: e.target.value })}
+                      className="w-full text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                    />
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-gray-500">{formatDate(u.createdAt)}</td>
                 <td className="px-4 py-3">
                   <button onClick={() => setEditing(editing === u.id ? null : u.id)} className="text-primary-600 dark:text-primary-400 hover:underline text-xs">

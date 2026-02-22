@@ -7,7 +7,7 @@ if (dbType === "mysql") {
 } else if (dbType === "postgres") {
   schema = await import("./schema-pg.js");
 } else {
-  // SQLite by default
+  // SQLite (libsql) by default
   schema = await import("./schema-sqlite.js");
 }
 

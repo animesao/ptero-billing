@@ -40,22 +40,57 @@ router.get('/users', async (req, res) => {
 
 router.patch('/users/:id', async (req, res) => {
   try {
-    const { role, status, balance } = req.body;
+    const { role, status, balance, balanceChange, balanceReason } = req.body;
+    const userId = parseInt(req.params.id);
+
     const updates = {};
     if (role) updates.role = role;
     if (status) updates.status = status;
+
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    // Обработка изменения баланса
+    if (balanceChange !== undefined) {
+      const change = parseInt(balanceChange);
+      if (isNaN(change) || change === 0) {
+        return res.status(400).json({ error: 'Некорректная сумма изменения' });
+      }
+      // Проверка чтобы не уйти в минус при списании
+      if (change < 0 && user.balance + change < 0) {
+        return res.status(400).json({ error: 'Недостаточно средств на балансе пользователя' });
+      }
+      updates.balance = user.balance + change;
+
+      // Создаём запись о платеже
+      await db.insert(payments).values({
+        userId: userId,
+        provider: 'admin_adjustment',
+        amount: Math.abs(change),
+        status: change > 0 ? 'completed' : 'refunded',
+        createdAt: new Date().toISOString(),
+        metadata: JSON.stringify({ reason: balanceReason || '', actorId: req.session.userId }),
+      });
+    }
+
     if (balance !== undefined) updates.balance = parseInt(balance);
 
-    const [updated] = await db.update(users).set(updates).where(eq(users.id, parseInt(req.params.id))).returning();
+    const [updated] = await db.update(users).set(updates).where(eq(users.id, userId)).returning();
+
     await db.insert(auditLogs).values({
       actorId: req.session.userId,
       action: 'user_update',
       entity: 'user',
       entityId: updated.id,
-      details: JSON.stringify(updates),
+      details: JSON.stringify({ ...updates, balanceChange, balanceReason }),
+      createdAt: new Date().toISOString(),
     });
+
     res.json(updated);
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) {
+    console.error('Admin user update error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 router.get('/plans', async (req, res) => {
@@ -68,6 +103,7 @@ router.get('/plans', async (req, res) => {
 router.post('/plans', async (req, res) => {
   try {
     const { name, description, cpu, ramMb, diskMb, slots, dbLimit, backupLimit, priceMonthly, priceQuarterly, priceYearly, nestId, eggId, nodeId, locationId, sortOrder } = req.body;
+    const now = new Date().toISOString();
     const [plan] = await db.insert(plans).values({
       name, description, cpu: parseInt(cpu), ramMb: parseInt(ramMb), diskMb: parseInt(diskMb),
       slots: parseInt(slots || 0), dbLimit: parseInt(dbLimit || 0), backupLimit: parseInt(backupLimit || 0),
@@ -76,6 +112,7 @@ router.post('/plans', async (req, res) => {
       nestId: nestId ? parseInt(nestId) : null, eggId: eggId ? parseInt(eggId) : null,
       nodeId: nodeId ? parseInt(nodeId) : null, locationId: locationId ? parseInt(locationId) : null,
       sortOrder: parseInt(sortOrder || 0),
+      createdAt: now,
     }).returning();
     res.json(plan);
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -152,12 +189,14 @@ router.get('/tickets/:id', async (req, res) => {
 router.post('/tickets/:id/reply', async (req, res) => {
   try {
     const { body } = req.body;
+    const now = new Date().toISOString();
     const [msg] = await db.insert(ticketMessages).values({
       ticketId: parseInt(req.params.id),
       userId: req.session.userId,
       body,
+      createdAt: now,
     }).returning();
-    await db.update(tickets).set({ updatedAt: new Date() }).where(eq(tickets.id, parseInt(req.params.id)));
+    await db.update(tickets).set({ updatedAt: now }).where(eq(tickets.id, parseInt(req.params.id)));
     res.json(msg);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -210,8 +249,12 @@ router.post('/settings', async (req, res) => {
     const entries = req.body;
     for (const [key, value] of Object.entries(entries)) {
       const group = key.startsWith('ptero_') ? 'pterodactyl' : key.startsWith('payment_') ? 'payments' : 'general';
-      await db.insert(settings).values({ key, value: String(value), group })
-        .onConflictDoUpdate({ target: settings.key, set: { value: String(value), group } });
+      const existing = await db.select().from(settings).where(eq(settings.key, key)).get();
+      if (existing) {
+        await db.update(settings).set({ value: String(value), group }).where(eq(settings.key, key));
+      } else {
+        await db.insert(settings).values({ key, value: String(value), group });
+      }
     }
     res.json({ success: true });
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -221,6 +264,34 @@ router.post('/ptero/test', async (req, res) => {
   try {
     const result = await ptero.testConnection();
     res.json(result);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+router.get('/ptero/nodes', async (req, res) => {
+  try {
+    const nodes = await ptero.getNodes();
+    res.json(nodes);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+router.get('/ptero/locations', async (req, res) => {
+  try {
+    const locations = await ptero.getLocations();
+    res.json(locations);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+router.get('/ptero/nests', async (req, res) => {
+  try {
+    const nests = await ptero.getNestsWithEggs();
+    res.json(nests);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+router.get('/ptero/nodes/:nodeId/allocations', async (req, res) => {
+  try {
+    const allocations = await ptero.getNodeAllocations(parseInt(req.params.nodeId));
+    res.json(allocations);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 

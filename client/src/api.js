@@ -52,6 +52,10 @@ export const api = {
     getSettings: () => request('/api/admin/settings'),
     saveSettings: (d) => request('/api/admin/settings', { method: 'POST', body: JSON.stringify(d) }),
     testPtero: () => request('/api/admin/ptero/test', { method: 'POST' }),
+    getNodes: () => request('/api/admin/ptero/nodes'),
+    getLocations: () => request('/api/admin/ptero/locations'),
+    getNests: () => request('/api/admin/ptero/nests'),
+    getNodeAllocations: (nodeId) => request(`/api/admin/ptero/nodes/${nodeId}/allocations`),
     getLogs: () => request('/api/admin/logs'),
   },
 };
