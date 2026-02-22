@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { db } from '../db.js';
+import { db, client } from '../db.js';
 import { users, plans, orders, servers, payments, tickets, ticketMessages, ticketCategories } from '../schema.js';
 import { eq, desc, and } from 'drizzle-orm';
 import { requireAuth } from '../middleware/auth.js';
@@ -49,58 +49,47 @@ router.post('/orders', async (req, res) => {
     const expiresAt = new Date();
     expiresAt.setMonth(expiresAt.getMonth() + periodMonths);
 
-    const [order] = await db.insert(orders).values({
-      userId: req.session.userId,
-      planId: plan.id,
-      status: 'active',
-      billingPeriod: billingPeriod || 'monthly',
-      amount,
-      expiresAt,
-    }).returning();
+    const result = await client.begin(async (tx) => {
+      const [order] = await tx`
+        INSERT INTO orders (user_id, plan_id, status, billing_period, amount, expires_at)
+        VALUES (${req.session.userId}, ${plan.id}, 'active', ${billingPeriod || 'monthly'}, ${amount}, ${expiresAt})
+        RETURNING *
+      `;
 
-    await db.update(users).set({ balance: user.balance - amount }).where(eq(users.id, req.session.userId));
+      await tx`UPDATE users SET balance = balance - ${amount} WHERE id = ${req.session.userId} AND balance >= ${amount}`;
 
-    await db.insert(payments).values({
-      orderId: order.id,
-      userId: req.session.userId,
-      provider: 'balance',
-      amount,
-      status: 'completed',
+      await tx`
+        INSERT INTO payments (order_id, user_id, provider, amount, status)
+        VALUES (${order.id}, ${req.session.userId}, 'balance', ${amount}, 'completed')
+      `;
+
+      const sName = serverName || `${plan.name}-${order.id}`;
+      let serverRecord;
+      try {
+        const pteroResult = await ptero.createServer({
+          name: sName,
+          userId: req.session.userId,
+          plan,
+          pteroUserId: 1,
+        });
+
+        [serverRecord] = await tx`
+          INSERT INTO servers (user_id, order_id, ptero_server_id, ptero_identifier, name, status, cpu, ram_mb, disk_mb)
+          VALUES (${req.session.userId}, ${order.id}, ${pteroResult.attributes?.id || null}, ${pteroResult.attributes?.identifier || null}, ${sName}, 'installing', ${plan.cpu}, ${plan.ramMb}, ${plan.diskMb})
+          RETURNING *
+        `;
+      } catch (pteroError) {
+        [serverRecord] = await tx`
+          INSERT INTO servers (user_id, order_id, name, status, cpu, ram_mb, disk_mb)
+          VALUES (${req.session.userId}, ${order.id}, ${sName}, 'pending_setup', ${plan.cpu}, ${plan.ramMb}, ${plan.diskMb})
+          RETURNING *
+        `;
+      }
+
+      return { order, server: serverRecord };
     });
 
-    let serverRecord;
-    try {
-      const pteroResult = await ptero.createServer({
-        name: serverName || `${plan.name}-${order.id}`,
-        userId: req.session.userId,
-        plan,
-        pteroUserId: 1,
-      });
-
-      [serverRecord] = await db.insert(servers).values({
-        userId: req.session.userId,
-        orderId: order.id,
-        pteroServerId: pteroResult.attributes?.id,
-        pteroIdentifier: pteroResult.attributes?.identifier,
-        name: serverName || `${plan.name}-${order.id}`,
-        status: 'installing',
-        cpu: plan.cpu,
-        ramMb: plan.ramMb,
-        diskMb: plan.diskMb,
-      }).returning();
-    } catch (pteroError) {
-      [serverRecord] = await db.insert(servers).values({
-        userId: req.session.userId,
-        orderId: order.id,
-        name: serverName || `${plan.name}-${order.id}`,
-        status: 'pending_setup',
-        cpu: plan.cpu,
-        ramMb: plan.ramMb,
-        diskMb: plan.diskMb,
-      }).returning();
-    }
-
-    res.json({ order, server: serverRecord });
+    res.json(result);
   } catch (error) {
     console.error('Order error:', error);
     res.status(500).json({ error: error.message });

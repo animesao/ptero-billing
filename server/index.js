@@ -25,14 +25,14 @@ app.use(session({
     conString: process.env.DATABASE_URL,
     createTableIfMissing: true,
   }),
-  secret: process.env.SESSION_SECRET || 'pterobilling-secret-key',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
     maxAge: 30 * 24 * 60 * 60 * 1000,
     httpOnly: true,
-    secure: false,
-    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
   },
 }));
 
