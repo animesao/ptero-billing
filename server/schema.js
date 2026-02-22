@@ -8,6 +8,7 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash').notNull(),
   role: varchar('role', { length: 20 }).notNull().default('user'),
   status: varchar('status', { length: 20 }).notNull().default('active'),
+  pteroUserId: integer('ptero_user_id'),
   balance: integer('balance').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

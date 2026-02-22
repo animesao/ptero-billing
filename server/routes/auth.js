@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { db } from '../db.js';
 import { users } from '../schema.js';
 import { eq } from 'drizzle-orm';
+import * as ptero from '../services/pterodactyl.js';
 
 const router = Router();
 
@@ -26,6 +27,21 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Имя пользователя занято' });
     }
 
+    // Try to create user in Pterodactyl first if configured
+    let pteroUserId = null;
+    try {
+      const pteroUser = await ptero.createPteroUser({
+        email,
+        username,
+        firstName: username,
+        lastName: 'User'
+      });
+      pteroUserId = pteroUser.attributes.id;
+    } catch (pteroError) {
+      console.error('Pterodactyl registration error:', pteroError.response?.data || pteroError.message);
+      // We continue even if Ptero fails, but log it
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
     const [user] = await db.insert(users).values({
       email,
@@ -33,6 +49,7 @@ router.post('/register', async (req, res) => {
       passwordHash,
       role: 'user',
       status: 'active',
+      pteroUserId: pteroUserId,
     }).returning();
 
     req.session.userId = user.id;
