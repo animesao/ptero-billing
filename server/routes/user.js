@@ -20,7 +20,7 @@ import {
   createPteroServer,
   deletePteroServer,
   getServerStatus,
-} from "../services/create-server.js";
+} from "../services/create-server-simple.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -795,6 +795,7 @@ router.post("/orders", async (req, res) => {
         plan: planToUse,
         pteroUserId: pteroUserId,
         pteroInstanceId: planToUse.pteroInstanceId || null,
+        kernelId: kernelData ? kernelData.id : null,
       });
 
       const pteroServerId = pteroResult.attributes?.id || null;
