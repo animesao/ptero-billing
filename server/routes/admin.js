@@ -11,6 +11,8 @@ import {
   ticketCategories,
   settings,
   auditLogs,
+  games,
+  kernels,
 } from "../schema.js";
 import { eq, desc, sql, count } from "drizzle-orm";
 import { requireAdmin } from "../middleware/auth.js";
@@ -669,6 +671,280 @@ router.get("/logs", async (req, res) => {
       .limit(100);
     res.json(result);
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== GAMES API ====================
+
+router.get("/games", async (req, res) => {
+  try {
+    const result = await db.select().from(games).orderBy(games.sortOrder);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/games", async (req, res) => {
+  try {
+    const { name, description, icon, pteroNestId, isActive, sortOrder } =
+      req.body;
+    const now = new Date().toISOString();
+    const [game] = await db
+      .insert(games)
+      .values({
+        name,
+        description,
+        icon,
+        pteroNestId: pteroNestId ? parseInt(pteroNestId) : null,
+        isActive: isActive !== undefined ? isActive : true,
+        sortOrder: parseInt(sortOrder || 0),
+        createdAt: now,
+      })
+      .returning();
+    res.json(game);
+  } catch (error) {
+    console.error("Create game error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put("/games/:id", async (req, res) => {
+  try {
+    const { name, description, icon, pteroNestId, isActive, sortOrder } =
+      req.body;
+    const [game] = await db
+      .update(games)
+      .set({
+        name,
+        description,
+        icon,
+        pteroNestId: pteroNestId ? parseInt(pteroNestId) : null,
+        isActive: isActive !== undefined ? isActive : true,
+        sortOrder: parseInt(sortOrder || 0),
+      })
+      .where(eq(games.id, parseInt(req.params.id)))
+      .returning();
+    res.json(game);
+  } catch (error) {
+    console.error("Update game error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete("/games/:id", async (req, res) => {
+  try {
+    await db.delete(games).where(eq(games.id, parseInt(req.params.id)));
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== KERNELS API ====================
+
+router.get("/kernels", async (req, res) => {
+  try {
+    const result = await db.select().from(kernels).orderBy(kernels.sortOrder);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/kernels/by-game/:gameId", async (req, res) => {
+  try {
+    const result = await db
+      .select()
+      .from(kernels)
+      .where(eq(kernels.gameId, parseInt(req.params.gameId)))
+      .orderBy(kernels.sortOrder);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/kernels", async (req, res) => {
+  try {
+    const {
+      gameId,
+      name,
+      description,
+      pteroEggId,
+      pteroNestId,
+      dockerImage,
+      startup,
+      environment,
+      isActive,
+      sortOrder,
+    } = req.body;
+    const now = new Date().toISOString();
+    const parseIntOrNull = (val) => {
+      if (!val || val === "") return null;
+      const num = parseInt(val);
+      return isNaN(num) ? null : num;
+    };
+    const [kernel] = await db
+      .insert(kernels)
+      .values({
+        gameId: parseIntOrNull(gameId),
+        name,
+        description,
+        pteroEggId: parseIntOrNull(pteroEggId),
+        pteroNestId: parseIntOrNull(pteroNestId),
+        dockerImage,
+        startup,
+        environment: environment ? JSON.stringify(environment) : null,
+        isActive: isActive !== undefined ? isActive : true,
+        sortOrder: parseInt(sortOrder || 0),
+        createdAt: now,
+      })
+      .returning();
+    res.json(kernel);
+  } catch (error) {
+    console.error("Create kernel error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put("/kernels/:id", async (req, res) => {
+  try {
+    const {
+      gameId,
+      name,
+      description,
+      pteroEggId,
+      pteroNestId,
+      dockerImage,
+      startup,
+      environment,
+      isActive,
+      sortOrder,
+    } = req.body;
+    const parseIntOrNull = (val) => {
+      if (!val || val === "") return null;
+      const num = parseInt(val);
+      return isNaN(num) ? null : num;
+    };
+    const [kernel] = await db
+      .update(kernels)
+      .set({
+        gameId: parseIntOrNull(gameId),
+        name,
+        description,
+        pteroEggId: parseIntOrNull(pteroEggId),
+        pteroNestId: parseIntOrNull(pteroNestId),
+        dockerImage,
+        startup,
+        environment: environment ? JSON.stringify(environment) : null,
+        isActive: isActive !== undefined ? isActive : true,
+        sortOrder: parseInt(sortOrder || 0),
+      })
+      .where(eq(kernels.id, parseInt(req.params.id)))
+      .returning();
+    res.json(kernel);
+  } catch (error) {
+    console.error("Update kernel error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete("/kernels/:id", async (req, res) => {
+  try {
+    await db.delete(kernels).where(eq(kernels.id, parseInt(req.params.id)));
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Синхронизация игр и ядер из Pterodactyl
+router.post("/ptero/sync", async (req, res) => {
+  try {
+    const nests = await ptero.getNestsWithEggs();
+    let gamesCreated = 0;
+    let kernelsCreated = 0;
+
+    for (const nest of nests) {
+      // Создаём или обновляем игру
+      const existingGame = await db
+        .select()
+        .from(games)
+        .where(eq(games.pteroNestId, nest.id))
+        .get();
+
+      if (existingGame) {
+        await db
+          .update(games)
+          .set({
+            name: nest.name,
+            description: nest.description,
+          })
+          .where(eq(games.id, existingGame.id));
+      } else {
+        await db.insert(games).values({
+          name: nest.name,
+          description: nest.description,
+          pteroNestId: nest.id,
+          isActive: true,
+          sortOrder: 0,
+          createdAt: new Date().toISOString(),
+        });
+        gamesCreated++;
+      }
+
+      // Создаём или обновляем ядра (яйца)
+      for (const egg of nest.eggs) {
+        const existingKernel = await db
+          .select()
+          .from(kernels)
+          .where(eq(kernels.pteroEggId, egg.id))
+          .get();
+
+        if (existingKernel) {
+          await db
+            .update(kernels)
+            .set({
+              name: egg.name,
+              description: egg.description,
+              dockerImage: egg.dockerImage,
+              startup: egg.startup,
+              environment: egg.environment
+                ? JSON.stringify(egg.environment)
+                : null,
+            })
+            .where(eq(kernels.id, existingKernel.id));
+        } else {
+          await db.insert(kernels).values({
+            gameId: existingGame ? existingGame.id : null,
+            name: egg.name,
+            description: egg.description,
+            pteroEggId: egg.id,
+            pteroNestId: nest.id,
+            dockerImage: egg.dockerImage,
+            startup: egg.startup,
+            environment: egg.environment
+              ? JSON.stringify(egg.environment)
+              : null,
+            isActive: true,
+            sortOrder: 0,
+            createdAt: new Date().toISOString(),
+          });
+          kernelsCreated++;
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Синхронизировано: ${gamesCreated} игр, ${kernelsCreated} ядер`,
+      gamesCreated,
+      kernelsCreated,
+    });
+  } catch (error) {
+    console.error("Sync error:", error);
     res.status(500).json({ error: error.message });
   }
 });

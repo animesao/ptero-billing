@@ -22,3 +22,5 @@ export const ticketMessages = schema.ticketMessages;
 export const ticketAttachments = schema.ticketAttachments;
 export const settings = schema.settings;
 export const auditLogs = schema.auditLogs;
+export const games = schema.games;
+export const kernels = schema.kernels;

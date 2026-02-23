@@ -146,3 +146,29 @@ export const auditLogs = sqliteTable("audit_logs", {
   details: text("details"),
   createdAt: text("created_at").notNull(),
 });
+
+export const games = sqliteTable("games", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  description: text("description"),
+  icon: text("icon"),
+  pteroNestId: integer("ptero_nest_id"),
+  isActive: integer("is_active").notNull().default(1),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at").notNull(),
+});
+
+export const kernels = sqliteTable("kernels", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  gameId: integer("game_id").references(() => games.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  pteroEggId: integer("ptero_egg_id"),
+  pteroNestId: integer("ptero_nest_id"),
+  dockerImage: text("docker_image"),
+  startup: text("startup"),
+  environment: text("environment"),
+  isActive: integer("is_active").notNull().default(1),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at").notNull(),
+});

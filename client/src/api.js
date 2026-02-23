@@ -125,5 +125,36 @@ export const api = {
     getNodeAllocations: (nodeId) =>
       request(`/api/admin/ptero/nodes/${nodeId}/allocations`),
     getLogs: () => request("/api/admin/logs"),
+
+    // Games API
+    getGames: () => request("/api/admin/games"),
+    createGame: (d) =>
+      request("/api/admin/games", { method: "POST", body: JSON.stringify(d) }),
+    updateGame: (id, d) =>
+      request(`/api/admin/games/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(d),
+      }),
+    deleteGame: (id) => request(`/api/admin/games/${id}`, { method: "DELETE" }),
+
+    // Kernels API
+    getKernels: () => request("/api/admin/kernels"),
+    getKernelsByGame: (gameId) =>
+      request(`/api/admin/kernels/by-game/${gameId}`),
+    createKernel: (d) =>
+      request("/api/admin/kernels", {
+        method: "POST",
+        body: JSON.stringify(d),
+      }),
+    updateKernel: (id, d) =>
+      request(`/api/admin/kernels/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(d),
+      }),
+    deleteKernel: (id) =>
+      request(`/api/admin/kernels/${id}`, { method: "DELETE" }),
+
+    // Sync Pterodactyl
+    syncPterodactyl: () => request("/api/admin/ptero/sync", { method: "POST" }),
   },
 };

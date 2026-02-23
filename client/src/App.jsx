@@ -27,6 +27,8 @@ import AdminTickets from "./pages/admin/AdminTickets.jsx";
 import AdminTicketDetail from "./pages/admin/AdminTicketDetail.jsx";
 import AdminSettings from "./pages/admin/AdminSettings.jsx";
 import AdminLogs from "./pages/admin/AdminLogs.jsx";
+import AdminGames from "./pages/admin/AdminGames.jsx";
+import AdminKernels from "./pages/admin/AdminKernels.jsx";
 
 export const AuthContext = createContext();
 
@@ -66,12 +68,18 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.me().then((d) => setUser(d.user)).catch(() => setUser(null)).finally(() => setLoading(false));
+    api
+      .me()
+      .then((d) => setUser(d.user))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
   const login = (userData) => setUser(userData);
   const logout = async () => {
-    try { await api.logout(); } catch {}
+    try {
+      await api.logout();
+    } catch {}
     setUser(null);
   };
 
@@ -80,29 +88,198 @@ export default function App() {
       <AuthContext.Provider value={{ user, login, logout, loading }}>
         <BrowserRouter>
           <Routes>
-            <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <LoginPage />} />
-            <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <RegisterPage />} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/servers" element={<ProtectedRoute><ServersPage /></ProtectedRoute>} />
-            <Route path="/plans" element={<ProtectedRoute><PlansPage /></ProtectedRoute>} />
-            <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
-            <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
-            <Route path="/tickets" element={<ProtectedRoute><TicketsPage /></ProtectedRoute>} />
-            <Route path="/tickets/:id" element={<ProtectedRoute><TicketDetail /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-            <Route path="/servers/:id/settings" element={<ProtectedRoute><ServerSettings /></ProtectedRoute>} />
-            <Route path="/plans/order" element={<ProtectedRoute><OrderPage /></ProtectedRoute>} />
-            <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/admin/users" element={<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>} />
-            <Route path="/admin/plans" element={<ProtectedRoute adminOnly><AdminPlans /></ProtectedRoute>} />
-            <Route path="/admin/nodes" element={<ProtectedRoute adminOnly><AdminNodes /></ProtectedRoute>} />
-            <Route path="/admin/orders" element={<ProtectedRoute adminOnly><AdminOrders /></ProtectedRoute>} />
-            <Route path="/admin/servers" element={<ProtectedRoute adminOnly><AdminServers /></ProtectedRoute>} />
-            <Route path="/admin/payments" element={<ProtectedRoute adminOnly><AdminPayments /></ProtectedRoute>} />
-            <Route path="/admin/tickets" element={<ProtectedRoute adminOnly><AdminTickets /></ProtectedRoute>} />
-            <Route path="/admin/tickets/:id" element={<ProtectedRoute adminOnly><AdminTicketDetail /></ProtectedRoute>} />
-            <Route path="/admin/settings" element={<ProtectedRoute adminOnly><AdminSettings /></ProtectedRoute>} />
-            <Route path="/admin/logs" element={<ProtectedRoute adminOnly><AdminLogs /></ProtectedRoute>} />
+            <Route
+              path="/login"
+              element={user ? <Navigate to="/dashboard" /> : <LoginPage />}
+            />
+            <Route
+              path="/register"
+              element={user ? <Navigate to="/dashboard" /> : <RegisterPage />}
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/servers"
+              element={
+                <ProtectedRoute>
+                  <ServersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/plans"
+              element={
+                <ProtectedRoute>
+                  <PlansPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/orders"
+              element={
+                <ProtectedRoute>
+                  <OrdersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payments"
+              element={
+                <ProtectedRoute>
+                  <PaymentsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tickets"
+              element={
+                <ProtectedRoute>
+                  <TicketsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tickets/:id"
+              element={
+                <ProtectedRoute>
+                  <TicketDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/servers/:id/settings"
+              element={
+                <ProtectedRoute>
+                  <ServerSettings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/plans/order"
+              element={
+                <ProtectedRoute>
+                  <OrderPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminUsers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/plans"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminPlans />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/nodes"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminNodes />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/orders"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminOrders />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/servers"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminServers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/payments"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminPayments />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/tickets"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminTickets />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/tickets/:id"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminTicketDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/settings"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminSettings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/logs"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminLogs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/games"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminGames />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/kernels"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminKernels />
+                </ProtectedRoute>
+              }
+            />
             <Route path="*" element={<Navigate to="/dashboard" />} />
           </Routes>
         </BrowserRouter>

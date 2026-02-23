@@ -21,10 +21,17 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // CORS setup for development
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5000', 'http://127.0.0.1:5173', 'http://127.0.0.1:5000'],
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5000",
+      "http://127.0.0.1:5173",
+      "http://127.0.0.1:5000",
+    ],
+    credentials: true,
+  }),
+);
 
 // Session store setup depends on DB type
 let sessionStore;
@@ -53,7 +60,7 @@ app.use(
       maxAge: 30 * 24 * 60 * 60 * 1000,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: 'lax',
+      sameSite: "lax",
     },
   }),
 );
@@ -115,11 +122,33 @@ async function initDatabaseSQLite() {
       )
     `);
     // Добавить колонки если не существуют
-    try { await client.execute(`ALTER TABLE plans ADD COLUMN node_ids TEXT`); } catch (e) { /* уже есть */ }
-    try { await client.execute(`ALTER TABLE plans ADD COLUMN docker_image TEXT`); } catch (e) { /* уже есть */ }
-    try { await client.execute(`ALTER TABLE plans ADD COLUMN startup TEXT`); } catch (e) { /* уже есть */ }
-    try { await client.execute(`ALTER TABLE plans ADD COLUMN environment TEXT`); } catch (e) { /* уже есть */ }
-    try { await client.execute(`ALTER TABLE plans ADD COLUMN ptero_instance_id TEXT`); } catch (e) { /* уже есть */ }
+    try {
+      await client.execute(`ALTER TABLE plans ADD COLUMN node_ids TEXT`);
+    } catch (e) {
+      /* уже есть */
+    }
+    try {
+      await client.execute(`ALTER TABLE plans ADD COLUMN docker_image TEXT`);
+    } catch (e) {
+      /* уже есть */
+    }
+    try {
+      await client.execute(`ALTER TABLE plans ADD COLUMN startup TEXT`);
+    } catch (e) {
+      /* уже есть */
+    }
+    try {
+      await client.execute(`ALTER TABLE plans ADD COLUMN environment TEXT`);
+    } catch (e) {
+      /* уже есть */
+    }
+    try {
+      await client.execute(
+        `ALTER TABLE plans ADD COLUMN ptero_instance_id TEXT`,
+      );
+    } catch (e) {
+      /* уже есть */
+    }
     await client.execute(`
       CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -154,7 +183,13 @@ async function initDatabaseSQLite() {
       )
     `);
     // Добавить колонку ptero_allocation_id если не существует
-    try { await client.execute(`ALTER TABLE servers ADD COLUMN ptero_allocation_id INTEGER`); } catch (e) { /* уже есть */ }
+    try {
+      await client.execute(
+        `ALTER TABLE servers ADD COLUMN ptero_allocation_id INTEGER`,
+      );
+    } catch (e) {
+      /* уже есть */
+    }
     await client.execute(`
       CREATE TABLE IF NOT EXISTS payments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -233,6 +268,35 @@ async function initDatabaseSQLite() {
         details TEXT,
         created_at TEXT NOT NULL,
         FOREIGN KEY (actor_id) REFERENCES users(id)
+      )
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS games (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        icon TEXT,
+        ptero_nest_id INTEGER,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS kernels (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id INTEGER,
+        name TEXT NOT NULL,
+        description TEXT,
+        ptero_egg_id INTEGER,
+        ptero_nest_id INTEGER,
+        docker_image TEXT,
+        startup TEXT,
+        environment TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (game_id) REFERENCES games(id)
       )
     `);
 
@@ -412,6 +476,35 @@ async function initDatabaseMySQL() {
         FOREIGN KEY (actor_id) REFERENCES users(id)
       )
     `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS games (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        description TEXT,
+        icon VARCHAR(255),
+        ptero_nest_id INT,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS kernels (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        game_id INT,
+        name VARCHAR(100) NOT NULL,
+        description TEXT,
+        ptero_egg_id INT,
+        ptero_nest_id INT,
+        docker_image TEXT,
+        startup TEXT,
+        environment TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        FOREIGN KEY (game_id) REFERENCES games(id)
+      )
+    `);
 
     const adminCheck = await db
       .select()
@@ -577,6 +670,34 @@ async function initDatabasePostgres() {
         created_at TIMESTAMP DEFAULT NOW() NOT NULL
       )
     `;
+    await client`
+      CREATE TABLE IF NOT EXISTS games (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        description TEXT,
+        icon VARCHAR(255),
+        ptero_nest_id INTEGER,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `;
+    await client`
+      CREATE TABLE IF NOT EXISTS kernels (
+        id SERIAL PRIMARY KEY,
+        game_id INTEGER REFERENCES games(id),
+        name VARCHAR(100) NOT NULL,
+        description TEXT,
+        ptero_egg_id INTEGER,
+        ptero_nest_id INTEGER,
+        docker_image VARCHAR(255),
+        startup TEXT,
+        environment TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `;
 
     const adminCheck = await db
       .select()
@@ -615,10 +736,10 @@ async function initDatabase() {
 // Синхронизация статусов серверов каждые 30 секунд
 async function syncServerStatuses() {
   try {
-    const { db } = await import('./db.js');
-    const { servers } = await import('./schema.js');
-    const { eq } = await import('drizzle-orm');
-    const ptero = await import('./services/pterodactyl.js');
+    const { db } = await import("./db.js");
+    const { servers } = await import("./schema.js");
+    const { eq } = await import("drizzle-orm");
+    const ptero = await import("./services/pterodactyl.js");
 
     const allServers = await db.select().from(servers);
     for (const server of allServers) {
@@ -628,20 +749,23 @@ async function syncServerStatuses() {
           let newStatus = server.status;
 
           // Синхронизируем статусы
-          if (pteroStatus === 'running') newStatus = 'running';
-          else if (pteroStatus === 'installing') newStatus = 'installing';
-          else if (pteroStatus === 'reinstalling') newStatus = 'reinstalling';
-          else if (pteroStatus === 'offline') newStatus = 'offline';
-          else if (pteroStatus === 'starting') newStatus = 'starting';
-          else if (pteroStatus === 'stopping') newStatus = 'stopping';
-          else if (pteroStatus === 'restarting') newStatus = 'restarting';
-          else if (pteroStatus === 'suspended') newStatus = 'suspended';
+          if (pteroStatus === "running") newStatus = "running";
+          else if (pteroStatus === "installing") newStatus = "installing";
+          else if (pteroStatus === "reinstalling") newStatus = "reinstalling";
+          else if (pteroStatus === "offline") newStatus = "offline";
+          else if (pteroStatus === "starting") newStatus = "starting";
+          else if (pteroStatus === "stopping") newStatus = "stopping";
+          else if (pteroStatus === "restarting") newStatus = "restarting";
+          else if (pteroStatus === "suspended") newStatus = "suspended";
 
           if (newStatus !== server.status) {
-            await db.update(servers)
+            await db
+              .update(servers)
               .set({ status: newStatus })
               .where(eq(servers.id, server.id));
-            console.log(`Server ${server.name} status updated: ${server.status} -> ${newStatus}`);
+            console.log(
+              `Server ${server.name} status updated: ${server.status} -> ${newStatus}`,
+            );
           }
         } catch (e) {
           // Игнорируем ошибки
