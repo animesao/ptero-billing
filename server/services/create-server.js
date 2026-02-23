@@ -133,7 +133,8 @@ function getDefaultValueForVariable(varName) {
   const lower = varName.toLowerCase();
 
   // Файлы - проверяем в первую очередь
-  if (upper === "SERVER_JARFILE" || upper === "JARFILE" || upper === "JAR_FILE") return "server.jar";
+  if (upper === "SERVER_JARFILE" || upper === "JARFILE" || upper === "JAR_FILE")
+    return "server.jar";
   if (upper === "PY_FILE" || upper === "PYTHON_FILE") return "main.py";
   if (upper === "JS_FILE" || upper === "NODE_FILE") return "index.js";
   if (upper === "REQUIREMENTS_FILE") return "requirements.txt";
@@ -169,7 +170,8 @@ function getDefaultValueForVariable(varName) {
 
   // Пакеты
   if (upper.includes("PACKAGES") || upper.includes("DEPENDENCIES")) return "";
-  if (upper.includes("PIP") || upper.includes("NPM") || upper.includes("YARN")) return "";
+  if (upper.includes("PIP") || upper.includes("NPM") || upper.includes("YARN"))
+    return "";
 
   // Сеть
   if (upper.includes("PORT")) return "25565";
@@ -182,21 +184,6 @@ function getDefaultValueForVariable(varName) {
 
   // Дефолтное значение
   return "latest";
-}
-  if (upper === "FABRIC_VERSION") return "latest";
-  if (upper === "SPONGE_VERSION") return "latest";
-  if (upper === "VELOCITY_VERSION") return "latest";
-  if (upper === "BUNGEE_VERSION") return "latest";
-  if (upper === "WATERFALL_VERSION") return "latest";
-
-  // Python специфичные
-  if (upper === "PY_FILE") return "main.py";
-  if (upper === "REQUIREMENTS_FILE") return "requirements.txt";
-  if (upper === "PY_PACKAGES") return "";
-  if (upper === "AUTO_UPDATE") return "1";
-  if (upper === "USER_UPLOAD") return "0";
-
-  return "";
 }
 
 /**
