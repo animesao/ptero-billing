@@ -1,4 +1,5 @@
 import axios from "axios";
+import https from "https";
 import { db } from "../db.js";
 import { settings } from "../schema.js";
 import { eq } from "drizzle-orm";
@@ -53,6 +54,9 @@ function getClient(config, instanceId = null) {
     timeout: 60000,
     maxContentLength: Infinity,
     maxBodyLength: Infinity,
+    httpsAgent: new https.Agent({
+      rejectUnauthorized: false,
+    }),
   });
 
   clientCache.set(cacheKey, client);
@@ -78,12 +82,15 @@ async function getEggVariables(client, nestId, eggId) {
       const varsResponse = await client.get(
         `/nests/${nestId}/eggs/${eggId}/variables`,
       );
-      console.log("Variables endpoint response:", JSON.stringify({
-        status: varsResponse.status,
-        hasData: !!varsResponse.data,
-        dataIsArray: Array.isArray(varsResponse.data),
-        dataLength: varsResponse.data?.length,
-      }));
+      console.log(
+        "Variables endpoint response:",
+        JSON.stringify({
+          status: varsResponse.status,
+          hasData: !!varsResponse.data,
+          dataIsArray: Array.isArray(varsResponse.data),
+          dataLength: varsResponse.data?.length,
+        }),
+      );
 
       if (varsResponse.data && Array.isArray(varsResponse.data)) {
         for (const item of varsResponse.data) {
@@ -97,8 +104,13 @@ async function getEggVariables(client, nestId, eggId) {
             });
           }
         }
-        console.log(`Got ${allVariables.length} variables from /variables endpoint (v2)`);
-      } else if (varsResponse.data?.data && Array.isArray(varsResponse.data.data)) {
+        console.log(
+          `Got ${allVariables.length} variables from /variables endpoint (v2)`,
+        );
+      } else if (
+        varsResponse.data?.data &&
+        Array.isArray(varsResponse.data.data)
+      ) {
         // Pterodactyl 1.x возвращает { data: [...] }
         for (const item of varsResponse.data.data) {
           const attrs = item.attributes || {};
@@ -111,7 +123,9 @@ async function getEggVariables(client, nestId, eggId) {
             });
           }
         }
-        console.log(`Got ${allVariables.length} variables from /variables endpoint (v1)`);
+        console.log(
+          `Got ${allVariables.length} variables from /variables endpoint (v1)`,
+        );
       }
     } catch (e) {
       console.log(`Variables endpoint not available: ${e.message}`);
@@ -122,20 +136,27 @@ async function getEggVariables(client, nestId, eggId) {
       try {
         const response = await client.get(
           `/nests/${nestId}/eggs/${eggId}?include=eggVariables`,
-          { params: { per_page: 100 } }
+          { params: { per_page: 100 } },
         );
-        console.log("Egg response with include:", JSON.stringify({
-          hasIncluded: !!response.data.included,
-          includedCount: response.data.included?.length,
-          hasRelationships: !!response.data.relationships,
-          relationships: response.data.relationships ? Object.keys(response.data.relationships) : [],
-        }));
+        console.log(
+          "Egg response with include:",
+          JSON.stringify({
+            hasIncluded: !!response.data.included,
+            includedCount: response.data.included?.length,
+            hasRelationships: !!response.data.relationships,
+            relationships: response.data.relationships
+              ? Object.keys(response.data.relationships)
+              : [],
+          }),
+        );
 
         // Проверяем included
         if (response.data.included && Array.isArray(response.data.included)) {
           for (const item of response.data.included) {
             if (item.type === "egg_variable") {
-              const envVar = item.attributes?.environment_variable || item.attributes?.env_variable;
+              const envVar =
+                item.attributes?.environment_variable ||
+                item.attributes?.env_variable;
               if (envVar) {
                 allVariables.push({
                   env_variable: envVar,
@@ -151,10 +172,12 @@ async function getEggVariables(client, nestId, eggId) {
         if (response.data.relationships?.eggVariables?.data) {
           for (const ref of response.data.relationships.eggVariables.data) {
             const varItem = response.data.included?.find(
-              (inc) => inc.type === "egg_variable" && inc.id === ref.id
+              (inc) => inc.type === "egg_variable" && inc.id === ref.id,
             );
             if (varItem?.attributes) {
-              const envVar = varItem.attributes?.environment_variable || varItem.attributes?.env_variable;
+              const envVar =
+                varItem.attributes?.environment_variable ||
+                varItem.attributes?.env_variable;
               if (envVar) {
                 allVariables.push({
                   env_variable: envVar,
@@ -167,7 +190,9 @@ async function getEggVariables(client, nestId, eggId) {
         }
 
         if (allVariables.length > 0) {
-          console.log(`Got ${allVariables.length} variables from include=eggVariables`);
+          console.log(
+            `Got ${allVariables.length} variables from include=eggVariables`,
+          );
         }
       } catch (e) {
         console.log(`Include eggVariables not available: ${e.message}`);
@@ -177,7 +202,10 @@ async function getEggVariables(client, nestId, eggId) {
     // Метод 3: attributes.variables (старый формат)
     if (allVariables.length === 0) {
       const eggResponse = await client.get(`/nests/${nestId}/eggs/${eggId}`);
-      if (eggResponse.data.attributes?.variables && Array.isArray(eggResponse.data.attributes.variables)) {
+      if (
+        eggResponse.data.attributes?.variables &&
+        Array.isArray(eggResponse.data.attributes.variables)
+      ) {
         for (const v of eggResponse.data.attributes.variables) {
           const envVar = v.env_variable || v.environment_variable;
           if (envVar) {
@@ -188,7 +216,9 @@ async function getEggVariables(client, nestId, eggId) {
             });
           }
         }
-        console.log(`Got ${allVariables.length} variables from attributes.variables`);
+        console.log(
+          `Got ${allVariables.length} variables from attributes.variables`,
+        );
       }
     }
 
@@ -217,77 +247,140 @@ async function getEggVariables(client, nestId, eggId) {
     }
 
     // Добавляем специфичные переменные для известных яиц
-    const existingVarNames = allVariables.map(v => v.env_variable);
+    const existingVarNames = allVariables.map((v) => v.env_variable);
 
     if (eggName.includes("sponge")) {
       if (!existingVarNames.includes("SPONGE_VERSION")) {
-        allVariables.push({ env_variable: "SPONGE_VERSION", default_value: "latest", required: true });
+        allVariables.push({
+          env_variable: "SPONGE_VERSION",
+          default_value: "latest",
+          required: true,
+        });
         console.log("Added SPONGE_VERSION for Sponge egg");
       }
       if (!existingVarNames.includes("SERVER_JARFILE")) {
-        allVariables.push({ env_variable: "SERVER_JARFILE", default_value: "server.jar", required: true });
+        allVariables.push({
+          env_variable: "SERVER_JARFILE",
+          default_value: "server.jar",
+          required: true,
+        });
       }
     } else if (eggName.includes("paper")) {
       if (!existingVarNames.includes("PAPER_VERSION")) {
-        allVariables.push({ env_variable: "PAPER_VERSION", default_value: "latest", required: true });
+        allVariables.push({
+          env_variable: "PAPER_VERSION",
+          default_value: "latest",
+          required: true,
+        });
         console.log("Added PAPER_VERSION for Paper egg");
       }
       if (!existingVarNames.includes("BUILD_NUMBER")) {
-        allVariables.push({ env_variable: "BUILD_NUMBER", default_value: "latest", required: true });
+        allVariables.push({
+          env_variable: "BUILD_NUMBER",
+          default_value: "latest",
+          required: true,
+        });
         console.log("Added BUILD_NUMBER for Paper egg");
       }
     } else if (eggName.includes("spigot")) {
       if (!existingVarNames.includes("SPIGOT_VERSION")) {
-        allVariables.push({ env_variable: "SPIGOT_VERSION", default_value: "latest", required: true });
+        allVariables.push({
+          env_variable: "SPIGOT_VERSION",
+          default_value: "latest",
+          required: true,
+        });
         console.log("Added SPIGOT_VERSION for Spigot egg");
       }
       if (!existingVarNames.includes("BUILD_NUMBER")) {
-        allVariables.push({ env_variable: "BUILD_NUMBER", default_value: "latest", required: true });
+        allVariables.push({
+          env_variable: "BUILD_NUMBER",
+          default_value: "latest",
+          required: true,
+        });
       }
     } else if (eggName.includes("forge")) {
       if (!existingVarNames.includes("FORGE_VERSION")) {
-        allVariables.push({ env_variable: "FORGE_VERSION", default_value: "latest", required: true });
+        allVariables.push({
+          env_variable: "FORGE_VERSION",
+          default_value: "latest",
+          required: true,
+        });
         console.log("Added FORGE_VERSION for Forge egg");
       }
       if (!existingVarNames.includes("MINECRAFT_VERSION")) {
-        allVariables.push({ env_variable: "MINECRAFT_VERSION", default_value: "latest", required: true });
+        allVariables.push({
+          env_variable: "MINECRAFT_VERSION",
+          default_value: "latest",
+          required: true,
+        });
       }
     } else if (eggName.includes("fabric")) {
       if (!existingVarNames.includes("FABRIC_VERSION")) {
-        allVariables.push({ env_variable: "FABRIC_VERSION", default_value: "latest", required: true });
+        allVariables.push({
+          env_variable: "FABRIC_VERSION",
+          default_value: "latest",
+          required: true,
+        });
         console.log("Added FABRIC_VERSION for Fabric egg");
       }
       if (!existingVarNames.includes("MINECRAFT_VERSION")) {
-        allVariables.push({ env_variable: "MINECRAFT_VERSION", default_value: "latest", required: true });
+        allVariables.push({
+          env_variable: "MINECRAFT_VERSION",
+          default_value: "latest",
+          required: true,
+        });
       }
     } else if (eggName.includes("bungee")) {
       if (!existingVarNames.includes("BUNGEE_VERSION")) {
-        allVariables.push({ env_variable: "BUNGEE_VERSION", default_value: "latest", required: true });
+        allVariables.push({
+          env_variable: "BUNGEE_VERSION",
+          default_value: "latest",
+          required: true,
+        });
         console.log("Added BUNGEE_VERSION for Bungee egg");
       }
       if (!existingVarNames.includes("BUILD_NUMBER")) {
-        allVariables.push({ env_variable: "BUILD_NUMBER", default_value: "latest", required: true });
+        allVariables.push({
+          env_variable: "BUILD_NUMBER",
+          default_value: "latest",
+          required: true,
+        });
       }
     } else if (eggName.includes("velocity")) {
       if (!existingVarNames.includes("VELOCITY_VERSION")) {
-        allVariables.push({ env_variable: "VELOCITY_VERSION", default_value: "latest", required: true });
+        allVariables.push({
+          env_variable: "VELOCITY_VERSION",
+          default_value: "latest",
+          required: true,
+        });
         console.log("Added VELOCITY_VERSION for Velocity egg");
       }
     } else if (eggName.includes("vanilla")) {
       if (!existingVarNames.includes("VANILLA_VERSION")) {
-        allVariables.push({ env_variable: "VANILLA_VERSION", default_value: "latest", required: true });
+        allVariables.push({
+          env_variable: "VANILLA_VERSION",
+          default_value: "latest",
+          required: true,
+        });
         console.log("Added VANILLA_VERSION for Vanilla egg");
       }
     } else if (eggName.includes("bukkit")) {
       if (!existingVarNames.includes("BUKKIT_VERSION")) {
-        allVariables.push({ env_variable: "BUKKIT_VERSION", default_value: "latest", required: true });
+        allVariables.push({
+          env_variable: "BUKKIT_VERSION",
+          default_value: "latest",
+          required: true,
+        });
         console.log("Added BUKKIT_VERSION for Bukkit egg");
       }
     }
 
     // Логирование всех найденных переменных
     if (allVariables.length > 0) {
-      console.log("All variables found:", JSON.stringify(allVariables, null, 2));
+      console.log(
+        "All variables found:",
+        JSON.stringify(allVariables, null, 2),
+      );
     }
   } catch (error) {
     console.error("Error getting egg variables:", error.message);
@@ -306,8 +399,14 @@ function extractVariablesFromStartup(startup) {
   const matches1 = startup.match(/\{\{([A-Z_][A-Z0-9_]*)\}\}/gi);
   const matches2 = startup.match(/\$\{([A-Z_][A-Z0-9_]*)\}/gi);
 
-  if (matches1) matches1.forEach((m) => variables.add(m.replace("{{", "").replace("}}", "")));
-  if (matches2) matches2.forEach((m) => variables.add(m.replace("${", "").replace("}", "")));
+  if (matches1)
+    matches1.forEach((m) =>
+      variables.add(m.replace("{{", "").replace("}}", "")),
+    );
+  if (matches2)
+    matches2.forEach((m) =>
+      variables.add(m.replace("${", "").replace("}", "")),
+    );
 
   return Array.from(variables).map((name) => ({
     env_variable: name,
@@ -360,16 +459,27 @@ function getDefaultValueForVariable(varName) {
   if (lower.includes("version")) return "latest";
 
   // Флаги и статусы (AUTOUPDATE, ENABLE и т.д.)
-  if (upper.includes("AUTOUPDATE_STATUS") || upper === "AUTOUPDATE_STATUS") return "1";
-  if (upper.includes("AUTOUPDATE_FORCE") || upper === "AUTOUPDATE_FORCE") return "0";
-  if (upper.includes("LOGCLEANER_STATUS") || upper === "LOGCLEANER_STATUS") return "0";
+  if (upper.includes("AUTOUPDATE_STATUS") || upper === "AUTOUPDATE_STATUS")
+    return "1";
+  if (upper.includes("AUTOUPDATE_FORCE") || upper === "AUTOUPDATE_FORCE")
+    return "0";
+  if (upper.includes("LOGCLEANER_STATUS") || upper === "LOGCLEANER_STATUS")
+    return "0";
   if (upper.includes("GIT_STATUS") || upper === "GIT_STATUS") return "0";
-  if (upper.includes("CLOUDFLARED_STATUS") || upper === "CLOUDFLARED_STATUS") return "0";
-  if (upper.includes("COMPOSER_STATUS") || upper === "COMPOSER_STATUS") return "0";
+  if (upper.includes("CLOUDFLARED_STATUS") || upper === "CLOUDFLARED_STATUS")
+    return "0";
+  if (upper.includes("COMPOSER_STATUS") || upper === "COMPOSER_STATUS")
+    return "0";
   if (upper.includes("CRON_STATUS") || upper === "CRON_STATUS") return "0";
-  if (upper.includes("CERTBOT_STATUS") || upper === "CERTBOT_STATUS") return "0";
-  if (upper.includes("CERTBOT_STAGING") || upper === "CERTBOT_STAGING") return "0";
-  if (upper.includes("CERTBOT_FORCE_RENEWAL") || upper === "CERTBOT_FORCE_RENEWAL") return "0";
+  if (upper.includes("CERTBOT_STATUS") || upper === "CERTBOT_STATUS")
+    return "0";
+  if (upper.includes("CERTBOT_STAGING") || upper === "CERTBOT_STAGING")
+    return "0";
+  if (
+    upper.includes("CERTBOT_FORCE_RENEWAL") ||
+    upper === "CERTBOT_FORCE_RENEWAL"
+  )
+    return "0";
 
   // USER_UPLOAD - файлы загружаются пользователем (0 = нет, 1 = да)
   if (upper === "USER_UPLOAD" || upper.includes("USER_UPLOAD")) return "0";
@@ -377,21 +487,32 @@ function getDefaultValueForVariable(varName) {
   if (upper.includes("UPDATE") || upper.includes("AUTO")) return "1";
   if (upper.includes("UPLOAD") || upper.includes("USER")) return "0";
   if (upper.includes("DEBUG")) return "0";
-  if (upper.includes("ENABLE") || upper.includes("USE") || upper.includes("STATUS")) return "0";
+  if (
+    upper.includes("ENABLE") ||
+    upper.includes("USE") ||
+    upper.includes("STATUS")
+  )
+    return "0";
   if (upper === "BATTLE_EYE") return "0";
   if (upper.includes("STAGING")) return "0";
   if (upper.includes("FORCE")) return "0";
 
   // Пакеты
   if (upper.includes("PACKAGES") || upper.includes("DEPENDENCIES")) return "";
-  if (upper.includes("PIP") || upper.includes("NPM") || upper.includes("YARN")) return "";
+  if (upper.includes("PIP") || upper.includes("NPM") || upper.includes("YARN"))
+    return "";
   if (upper.includes("EXTENSIONS") || upper.includes("MODS")) return "";
 
   // Сеть
   if (upper.includes("PORT")) return "25565";
   if (upper.includes("IP") || upper.includes("HOST")) return "0.0.0.0";
   if (upper.includes("URL")) return "";
-  if (upper.includes("TOKEN") || upper.includes("KEY") || upper.includes("SECRET")) return "";
+  if (
+    upper.includes("TOKEN") ||
+    upper.includes("KEY") ||
+    upper.includes("SECRET")
+  )
+    return "";
   if (upper.includes("EMAIL")) return "admin@example.com";
   if (upper.includes("DOMAIN")) return "example.com";
 
@@ -410,7 +531,12 @@ function getDefaultValueForVariable(varName) {
 
   // Общее
   if (upper.includes("MAP") || upper.includes("WORLD")) return "latest";
-  if (upper.includes("NAME") || upper.includes("TITLE") || upper.includes("SESSION")) return "Server";
+  if (
+    upper.includes("NAME") ||
+    upper.includes("TITLE") ||
+    upper.includes("SESSION")
+  )
+    return "Server";
   if (upper.includes("PASSWORD") || upper.includes("PASSWD")) return "";
   if (upper.includes("ADMIN") || upper.includes("OWNER")) return "admin";
 
@@ -422,7 +548,9 @@ function getDefaultValueForVariable(varName) {
  */
 async function findNestId(client, eggId) {
   try {
-    const nestsResponse = await client.get("/nests", { params: { per_page: 100 } });
+    const nestsResponse = await client.get("/nests", {
+      params: { per_page: 100 },
+    });
     const nests = nestsResponse.data.data || [];
 
     for (const nest of nests) {
@@ -448,18 +576,20 @@ async function findNestId(client, eggId) {
  */
 async function getAllNodesWithLoad(client) {
   try {
-    const nodesResponse = await client.get("/nodes", { params: { per_page: 100 } });
+    const nodesResponse = await client.get("/nodes", {
+      params: { per_page: 100 },
+    });
     const nodes = nodesResponse.data.data || [];
 
     const nodesWithLoad = await Promise.all(
       nodes.map(async (node) => {
         try {
           const nodeId = node.attributes.id;
-          const serversResponse = await client.get(
-            `/nodes/${nodeId}/servers`,
-            { params: { per_page: 1 } }
-          );
-          const totalServers = serversResponse.data.meta?.pagination?.total || 0;
+          const serversResponse = await client.get(`/nodes/${nodeId}/servers`, {
+            params: { per_page: 1 },
+          });
+          const totalServers =
+            serversResponse.data.meta?.pagination?.total || 0;
 
           return {
             id: nodeId,
@@ -483,7 +613,7 @@ async function getAllNodesWithLoad(client) {
     );
 
     // Фильтруем ноды на обслуживании
-    const availableNodes = nodesWithLoad.filter(n => !n.isUnderMaintenance);
+    const availableNodes = nodesWithLoad.filter((n) => !n.isUnderMaintenance);
 
     // Сортируем по загрузке
     availableNodes.sort((a, b) => a.load - b.load);
@@ -508,20 +638,25 @@ async function selectNode(client, plan) {
         // Проверяем доступность нод
         const allNodes = await getAllNodesWithLoad(client);
         const availableIds = allNodes
-          .filter(n => nodeIdsArray.includes(String(n.id)))
-          .map(n => n.id);
+          .filter((n) => nodeIdsArray.includes(String(n.id)))
+          .map((n) => n.id);
 
         if (availableIds.length > 0) {
           // Выбираем случайную из доступных
-          const selectedId = availableIds[Math.floor(Math.random() * availableIds.length)];
-          const node = allNodes.find(n => n.id === selectedId);
-          console.log(`Selected node from nodeIds: ${node?.name} (id: ${selectedId})`);
+          const selectedId =
+            availableIds[Math.floor(Math.random() * availableIds.length)];
+          const node = allNodes.find((n) => n.id === selectedId);
+          console.log(
+            `Selected node from nodeIds: ${node?.name} (id: ${selectedId})`,
+          );
           return selectedId;
         }
 
         // Если все ноды из списка недоступны, берём первую доступную
         if (allNodes.length > 0) {
-          console.log(`All specified nodeIds unavailable, using least loaded: ${allNodes[0].name}`);
+          console.log(
+            `All specified nodeIds unavailable, using least loaded: ${allNodes[0].name}`,
+          );
           return allNodes[0].id;
         }
       }
@@ -540,7 +675,9 @@ async function selectNode(client, plan) {
   const allNodes = await getAllNodesWithLoad(client);
   if (allNodes.length > 0) {
     const leastLoaded = allNodes[0];
-    console.log(`Selected least loaded node: ${leastLoaded.name} (load: ${leastLoaded.load})`);
+    console.log(
+      `Selected least loaded node: ${leastLoaded.name} (load: ${leastLoaded.load})`,
+    );
     return leastLoaded.id;
   }
 
@@ -554,7 +691,7 @@ async function getFreeAllocation(client, nodeId) {
   try {
     const allocationsResponse = await client.get(
       `/nodes/${nodeId}/allocations`,
-      { params: { per_page: 500 } }
+      { params: { per_page: 500 } },
     );
     const allocations = allocationsResponse.data.data || [];
     const free = allocations.filter((a) => a.attributes?.assigned === false);
@@ -584,7 +721,11 @@ function buildEnvironment(eggVariables, startup) {
         let defaultValue = variable.default_value;
 
         // Если значения по умолчанию нет, генерируем умное значение
-        if (defaultValue === "" || defaultValue === null || defaultValue === undefined) {
+        if (
+          defaultValue === "" ||
+          defaultValue === null ||
+          defaultValue === undefined
+        ) {
           defaultValue = getDefaultValueForVariable(variable.env_variable);
         }
 
@@ -597,7 +738,9 @@ function buildEnvironment(eggVariables, startup) {
         processedVars.add(variable.env_variable);
       }
     }
-    console.log(`Built environment with ${Object.keys(environment).length} variables from egg`);
+    console.log(
+      `Built environment with ${Object.keys(environment).length} variables from egg`,
+    );
   }
 
   // Извлекаем переменные из startup и добавляем недостающие
@@ -606,11 +749,15 @@ function buildEnvironment(eggVariables, startup) {
     for (const variable of extractedVars) {
       // Добавляем только если переменная ещё не обработана
       if (!processedVars.has(variable.env_variable)) {
-        environment[variable.env_variable] = variable.default_value || getDefaultValueForVariable(variable.env_variable);
+        environment[variable.env_variable] =
+          variable.default_value ||
+          getDefaultValueForVariable(variable.env_variable);
         processedVars.add(variable.env_variable);
       }
     }
-    console.log(`Built environment with ${Object.keys(environment).length} total variables (startup added ${extractedVars.filter(v => !processedVars.has(v.env_variable)).length})`);
+    console.log(
+      `Built environment with ${Object.keys(environment).length} total variables (startup added ${extractedVars.filter((v) => !processedVars.has(v.env_variable)).length})`,
+    );
   }
 
   console.log("Final environment:", JSON.stringify(environment));
@@ -744,10 +891,14 @@ export async function createPteroServer({
 
   console.log(
     "Creating server with payload:",
-    JSON.stringify({
-      ...payload,
-      environment: `{${Object.keys(payload.environment).length} variables}`,
-    }, null, 2),
+    JSON.stringify(
+      {
+        ...payload,
+        environment: `{${Object.keys(payload.environment).length} variables}`,
+      },
+      null,
+      2,
+    ),
   );
 
   try {
@@ -816,7 +967,9 @@ export async function getAllEggs(pteroInstanceId = null) {
   const client = getClient(config, pteroInstanceId);
 
   try {
-    const nestsResponse = await client.get("/nests", { params: { per_page: 100 } });
+    const nestsResponse = await client.get("/nests", {
+      params: { per_page: 100 },
+    });
     const nests = nestsResponse.data.data || [];
 
     const allEggs = [];
@@ -824,7 +977,7 @@ export async function getAllEggs(pteroInstanceId = null) {
       try {
         const eggsResponse = await client.get(
           `/nests/${nest.attributes.id}/eggs`,
-          { params: { per_page: 100 } }
+          { params: { per_page: 100 } },
         );
         const eggs = eggsResponse.data.data || [];
         for (const egg of eggs) {

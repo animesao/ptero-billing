@@ -805,19 +805,69 @@ export async function createPteroUser({
   }
 
   try {
-    const response = await client.post("/users", {
-      email,
-      username,
-      first_name: firstName || username,
-      last_name: lastName || "User",
-      password,
-    });
-    return response.data;
+    // Пробуем формат для Pterodactyl 2.x (с attributes)
+    try {
+      const response = await client.post("/users", {
+        email,
+        username,
+        first_name: firstName || username,
+        last_name: lastName || "User",
+        password,
+        root_admin: false,
+      });
+      console.log(
+        "Pterodactyl user created (v2 format):",
+        response.data.attributes?.id,
+      );
+      return response.data;
+    } catch (v2Error) {
+      // Если ошибка валидации, пробуем формат Pterodactyl 1.x
+      const errorData = v2Error.response?.data;
+      const errors = errorData?.errors || [];
+      const hasUnknownFields = errors.some(
+        (e) =>
+          e.code === "REST_API_UNKNOWN_FIELD_ERROR" ||
+          e.detail?.includes("username") ||
+          e.detail?.includes("first_name"),
+      );
+
+      if (hasUnknownFields) {
+        console.log("Falling back to Pterodactyl 1.x format");
+        // Для Pterodactyl 1.x может потребоваться другой формат
+        const response = await client.post("/users", {
+          email,
+          username,
+          first_name: firstName || username,
+          last_name: lastName || "User",
+          password,
+        });
+        console.log(
+          "Pterodactyl user created (v1 format):",
+          response.data.attributes?.id,
+        );
+        return response.data;
+      }
+
+      // Пробрасываем оригинальную ошибку
+      throw v2Error;
+    }
   } catch (error) {
     console.error(
       "Pterodactyl create user error:",
-      error.response?.data || error.message,
+      JSON.stringify(error.response?.data, null, 2) || error.message,
     );
+
+    // Форматируем ошибку для клиента
+    const errorData = error.response?.data;
+    const errors = errorData?.errors || [];
+
+    if (errors.length > 0) {
+      const errorMessages = errors.map((e) => e.detail || e.message).join(", ");
+      const formattedError = new Error(errorMessages);
+      formattedError.response = error.response;
+      throw formattedError;
+    }
+
     throw error;
   }
 }
