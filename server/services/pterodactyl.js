@@ -808,12 +808,15 @@ export async function createPteroUser({
     // Пробуем формат для Pterodactyl 2.x (с attributes)
     try {
       const response = await client.post("/users", {
-        email,
-        username,
-        first_name: firstName || username,
-        last_name: lastName || "User",
-        password,
-        root_admin: false,
+        type: "user",
+        attributes: {
+          email,
+          username,
+          first_name: firstName || username,
+          last_name: lastName || "User",
+          password,
+          root_admin: false,
+        },
       });
       console.log(
         "Pterodactyl user created (v2 format):",
@@ -827,13 +830,14 @@ export async function createPteroUser({
       const hasUnknownFields = errors.some(
         (e) =>
           e.code === "REST_API_UNKNOWN_FIELD_ERROR" ||
-          e.detail?.includes("username") ||
-          e.detail?.includes("first_name"),
+          e.code === "REST_API_INVALID_ATTRIBUTES_ERROR" ||
+          e.detail?.includes("type") ||
+          e.detail?.includes("attributes"),
       );
 
       if (hasUnknownFields) {
         console.log("Falling back to Pterodactyl 1.x format");
-        // Для Pterodactyl 1.x может потребоваться другой формат
+        // Для Pterodactyl 1.x - прямой формат без обёртки
         const response = await client.post("/users", {
           email,
           username,

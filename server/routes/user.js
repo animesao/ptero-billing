@@ -640,20 +640,38 @@ router.post("/orders", async (req, res) => {
           email: user.email,
           username: user.username,
           firstName: user.username,
-          lastName: 'User',
+          lastName: "User",
           password: Math.random().toString(36).slice(-10), // Случайный пароль
         });
-        pteroUserId = pteroUser.attributes.id;
+        pteroUserId = pteroUser.attributes?.id;
         // Обновляем пользователя в БД
-        await db.update(users).set({ pteroUserId }).where(eq(users.id, req.session.userId));
+        await db
+          .update(users)
+          .set({ pteroUserId })
+          .where(eq(users.id, req.session.userId));
         console.log("Pterodactyl user created:", pteroUserId);
       } catch (pteroCreateError) {
-        console.error("Failed to create Pterodactyl user:", pteroCreateError.response?.data || pteroCreateError.message);
+        console.error(
+          "Failed to create Pterodactyl user:",
+          JSON.stringify(pteroCreateError.response?.data, null, 2) ||
+            pteroCreateError.message,
+        );
+
         // Откатываем транзакцию - возвращаем баланс
-        await db.update(users).set({ balance: user.balance + amount }).where(eq(users.id, req.session.userId));
+        await db
+          .update(users)
+          .set({ balance: user.balance + amount })
+          .where(eq(users.id, req.session.userId));
+
+        // Форматируем ошибку
+        const errorData = pteroCreateError.response?.data;
+        const errors = errorData?.errors || [];
+        const errorDetails =
+          errors.map((e) => e.detail).join(", ") || pteroCreateError.message;
+
         return res.status(500).json({
-          error: 'Не удалось создать пользователя в Pterodactyl',
-          details: pteroCreateError.response?.data?.errors?.[0]?.detail || pteroCreateError.message
+          error: "Не удалось создать пользователя в Pterodactyl",
+          details: errorDetails,
         });
       }
     }
