@@ -313,6 +313,7 @@ export async function createServer({ name, userId, plan, pteroUserId }) {
   let eggStartup = plan.startup;
   let eggDockerImage = plan.dockerImage;
   let environment = {};
+  let eggVariablesReceived = false;
 
   // Всегда пытаемся получить данные из яйца Pterodactyl если есть nestId и eggId
   if (plan.nestId && plan.eggId) {
@@ -345,63 +346,81 @@ export async function createServer({ name, userId, plan, pteroUserId }) {
         const required = variable.required || false;
 
         if (envVar) {
-          environment[envVar] = defaultValue || "default";
+          // Для обязательных переменных используем значение по умолчанию или 'latest'
+          if (required) {
+            environment[envVar] = defaultValue || "latest";
+          } else {
+            environment[envVar] = defaultValue || "default";
+          }
         }
       }
 
-      // Если переменных нет, добавляем универсальные для всех типов серверов
-      if (Object.keys(environment).length === 0) {
-        const isBungeecord =
-          eggStartup?.includes("bungee") || eggDockerImage?.includes("bungee");
-        const isVelocity =
-          eggStartup?.includes("velocity") ||
-          eggDockerImage?.includes("velocity");
-        const isForge =
-          eggStartup?.includes("forge") || eggDockerImage?.includes("forge");
-
-        if (isBungeecord) {
-          environment = {
-            BUNGEE_VERSION: "latest",
-            BUNGEE_JARFILE: "bungeecord.jar",
-          };
-        } else if (isVelocity) {
-          environment = {
-            VELOCITY_VERSION: "latest",
-            VELOCITY_JARFILE: "velocity.jar",
-          };
-        } else if (isForge) {
-          environment = {
-            FORGE_VERSION: "latest",
-            MINECRAFT_VERSION: "latest",
-            SERVER_JARFILE: "server.jar",
-          };
-        } else {
-          environment = {
-            SERVER_JARFILE: "server.jar",
-            BUILD_NUMBER: "latest",
-            MINECRAFT_VERSION: "latest",
-          };
-        }
-      }
-
+      eggVariablesReceived = true;
       console.log("Egg environment variables:", JSON.stringify(environment));
     } catch (error) {
       console.error("Error getting egg details:", error.message);
+    }
+  }
+
+  // Если переменные не получены из яйца, определяем тип сервера и добавляем дефолтные значения
+  if (!eggVariablesReceived && Object.keys(environment).length === 0) {
+    // Определяем тип сервера по startup или docker_image
+    const isBungeecord =
+      eggStartup?.toLowerCase().includes("bungee") ||
+      eggDockerImage?.toLowerCase().includes("bungee");
+    const isVelocity =
+      eggStartup?.toLowerCase().includes("velocity") ||
+      eggDockerImage?.toLowerCase().includes("velocity");
+    const isForge =
+      eggStartup?.toLowerCase().includes("forge") ||
+      eggDockerImage?.toLowerCase().includes("forge");
+    const isFabric =
+      eggStartup?.toLowerCase().includes("fabric") ||
+      eggDockerImage?.toLowerCase().includes("fabric");
+    const isSponge =
+      eggStartup?.toLowerCase().includes("sponge") ||
+      eggDockerImage?.toLowerCase().includes("sponge");
+
+    if (isBungeecord) {
+      environment = {
+        BUNGEE_VERSION: "latest",
+        SERVER_JARFILE: "bungeecord.jar",
+      };
+    } else if (isVelocity) {
+      environment = {
+        VELOCITY_VERSION: "latest",
+        SERVER_JARFILE: "velocity.jar",
+      };
+    } else if (isForge) {
+      environment = {
+        FORGE_VERSION: "latest",
+        MINECRAFT_VERSION: "latest",
+        SERVER_JARFILE: "server.jar",
+      };
+    } else if (isFabric) {
+      environment = {
+        FABRIC_VERSION: "latest",
+        MINECRAFT_VERSION: "latest",
+        SERVER_JARFILE: "server.jar",
+      };
+    } else if (isSponge) {
+      environment = {
+        SPONGE_VERSION: "latest",
+        SERVER_JARFILE: "spongeforge.jar",
+      };
+    } else {
+      // Дефолтные значения для Java серверов (Paper, Spigot и т.д.)
       environment = {
         SERVER_JARFILE: "server.jar",
         BUILD_NUMBER: "latest",
-        BUNGEE_VERSION: "latest",
-        BUNGEE_JARFILE: "bungeecord.jar",
-        VELOCITY_VERSION: "latest",
-        VELOCITY_JARFILE: "velocity.jar",
         MINECRAFT_VERSION: "latest",
-        FORGE_VERSION: "latest",
-        FABRIC_VERSION: "latest",
-        SPONGE_VERSION: "latest",
-        PAPER_VERSION: "latest",
-        SPIGOT_VERSION: "latest",
       };
     }
+
+    console.log(
+      "Using default environment for detected server type:",
+      JSON.stringify(environment),
+    );
   }
 
   // Если после всех попыток docker_image или startup всё ещё null/undefined,
