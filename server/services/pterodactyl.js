@@ -470,26 +470,27 @@ export async function createServer({ name, userId, plan, pteroUserId }) {
 
   const payload = {
     name: name,
-    user: pteroUserId,
-    egg: plan.eggId,
+    user: parseInt(pteroUserId),
+    egg: parseInt(plan.eggId),
     docker_image: eggDockerImage,
     startup: eggStartup,
     environment: environment,
     limits: {
-      memory: plan.ramMb,
+      memory: parseInt(plan.ramMb),
       swap: 0,
-      disk: plan.diskMb,
+      disk: parseInt(plan.diskMb),
       io: 500,
-      cpu: plan.cpu,
+      cpu: parseInt(plan.cpu),
     },
     feature_limits: {
-      databases: plan.dbLimit || 0,
-      backups: plan.backupLimit || 0,
-      allocations: plan.slots || 1,
+      databases: parseInt(plan.dbLimit) || 0,
+      backups: parseInt(plan.backupLimit) || 0,
+      allocations: parseInt(plan.slots) || 1,
     },
   };
 
-  if (plan.nestId) payload.nest = plan.nestId;
+  // Убираем nest из payload - Pterodactyl 1.x не требует это поле
+  // if (plan.nestId) payload.nest = plan.nestId;
 
   // Если есть аллокация - используем её, иначе пробуем deploy с выбранной нодой
   if (allocationId) {
@@ -700,8 +701,8 @@ export async function reinstallServerWithEgg(
   try {
     const newServerPayload = {
       name: serverName,
-      user: userId,
-      egg,
+      user: parseInt(userId),
+      egg: parseInt(egg),
       docker_image: eggDockerImage,
       startup: eggStartup,
       environment: {},
@@ -730,7 +731,7 @@ export async function reinstallServerWithEgg(
       newServerPayload.deploy = {
         locations: [parseInt(nodeId)],
         dedicated_ip: false,
-        port_range: [],
+        port_range: ["60000-60100"],
       };
       console.log(`Using deploy mode with node ID: ${nodeId}`);
     }

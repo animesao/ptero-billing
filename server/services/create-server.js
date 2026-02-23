@@ -856,24 +856,23 @@ export async function createPteroServer({
   // 7. Формируем payload
   const payload = {
     name: serverNameOverride || name,
-    user: pteroUserId,
-    egg: plan.eggId,
+    user: parseInt(pteroUserId),
+    egg: parseInt(plan.eggId),
     docker_image: eggInfo.docker_image || "ghcr.io/parkervcp/yolks:java_21",
     startup: eggInfo.startup,
     environment: environment,
     limits: {
-      memory: plan.ramMb || 1024,
+      memory: parseInt(plan.ramMb) || 1024,
       swap: 0,
-      disk: plan.diskMb || 5120,
+      disk: parseInt(plan.diskMb) || 5120,
       io: 500,
-      cpu: plan.cpu || 100,
+      cpu: parseInt(plan.cpu) || 100,
     },
     feature_limits: {
-      databases: plan.dbLimit || 0,
-      backups: plan.backupLimit || 0,
-      allocations: plan.slots || 1,
+      databases: parseInt(plan.dbLimit) || 0,
+      backups: parseInt(plan.backupLimit) || 0,
+      allocations: parseInt(plan.slots) || 1,
     },
-    nest: actualNestId,
   };
 
   // Добавляем аллокацию или deploy конфигурацию
