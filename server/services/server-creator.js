@@ -3,9 +3,11 @@ import https from "https";
 import { db } from "../db.js";
 import { settings, kernels } from "../schema.js";
 import { eq } from "drizzle-orm";
-import { getConfig, getClient, getKernelEnvironment } from "./pterodactyl-api.js";
-
-const clientCache = new Map();
+import {
+  getConfig,
+  getClient,
+  getKernelEnvironment,
+} from "./pterodactyl-api.js";
 
 /**
  * Создать сервер Pterodactyl
@@ -53,22 +55,29 @@ export async function createPteroServer({
   console.log("  dockerImage:", dockerImage);
 
   if (!actualNestId || !actualEggId) {
-    throw new Error(`Не указаны nestId (${actualNestId}) или eggId (${actualEggId})`);
+    throw new Error(
+      `Не указаны nestId (${actualNestId}) или eggId (${actualEggId})`,
+    );
   }
 
   // 2. Получаем переменные окружения
   let finalEnvironment = {};
 
   if (kernelId) {
-    finalEnvironment = await getKernelEnvironment(kernelId, actualNestId, actualEggId);
+    finalEnvironment = await getKernelEnvironment(
+      kernelId,
+      actualNestId,
+      actualEggId,
+    );
   }
 
   // Если не получилось из ядра, пробуем из плана
   if (Object.keys(finalEnvironment).length === 0 && plan.environment) {
     try {
-      finalEnvironment = typeof plan.environment === 'string'
-        ? JSON.parse(plan.environment)
-        : plan.environment;
+      finalEnvironment =
+        typeof plan.environment === "string"
+          ? JSON.parse(plan.environment)
+          : plan.environment;
       console.log("✅ Loaded environment from plan:", finalEnvironment);
     } catch (e) {
       console.log("Failed to parse plan environment");
@@ -108,7 +117,8 @@ export async function createPteroServer({
     user: parseInt(pteroUserId),
     egg: parseInt(actualEggId),
     docker_image: dockerImage || "ghcr.io/parkervcp/yolks:java_21",
-    startup: startup || "java -Xms128M -Xmx${SERVER_MEMORY}M -jar ${SERVER_JARFILE}",
+    startup:
+      startup || "java -Xms128M -Xmx${SERVER_MEMORY}M -jar ${SERVER_JARFILE}",
     environment: finalEnvironment,
     limits: {
       memory: parseInt(plan.ramMb) || 1024,
@@ -139,10 +149,16 @@ export async function createPteroServer({
   }
 
   console.log("\nFinal payload:");
-  console.log(JSON.stringify({
-    ...payload,
-    environment: `{${Object.keys(payload.environment).length} vars}`,
-  }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        ...payload,
+        environment: `{${Object.keys(payload.environment).length} vars}`,
+      },
+      null,
+      2,
+    ),
+  );
 
   // 6. Создаём сервер
   try {
@@ -158,7 +174,10 @@ export async function createPteroServer({
   } catch (error) {
     console.error("\n❌ FAILED TO CREATE SERVER");
     if (error.response?.data) {
-      console.error("Pterodactyl error:", JSON.stringify(error.response.data, null, 2));
+      console.error(
+        "Pterodactyl error:",
+        JSON.stringify(error.response.data, null, 2),
+      );
     } else {
       console.error("Error:", error.message);
     }
@@ -189,18 +208,20 @@ async function selectNode(client, plan) {
 
   // Выбираем наименее загруженную
   try {
-    const nodesResponse = await client.get("/nodes", { params: { per_page: 100 } });
+    const nodesResponse = await client.get("/nodes", {
+      params: { per_page: 100 },
+    });
     const nodes = nodesResponse.data.data || [];
 
     const nodesWithLoad = await Promise.all(
       nodes.map(async (node) => {
         try {
           const nodeId = node.attributes.id;
-          const serversResponse = await client.get(
-            `/nodes/${nodeId}/servers`,
-            { params: { per_page: 1 } }
-          );
-          const totalServers = serversResponse.data.meta?.pagination?.total || 0;
+          const serversResponse = await client.get(`/nodes/${nodeId}/servers`, {
+            params: { per_page: 1 },
+          });
+          const totalServers =
+            serversResponse.data.meta?.pagination?.total || 0;
 
           return {
             id: nodeId,
@@ -219,7 +240,7 @@ async function selectNode(client, plan) {
       }),
     );
 
-    const availableNodes = nodesWithLoad.filter(n => !n.isUnderMaintenance);
+    const availableNodes = nodesWithLoad.filter((n) => !n.isUnderMaintenance);
     availableNodes.sort((a, b) => a.load - b.load);
 
     if (availableNodes.length > 0) {
@@ -239,7 +260,7 @@ async function getFreeAllocation(client, nodeId) {
   try {
     const allocationsResponse = await client.get(
       `/nodes/${nodeId}/allocations`,
-      { params: { per_page: 500 } }
+      { params: { per_page: 500 } },
     );
     const allocations = allocationsResponse.data.data || [];
     const free = allocations.filter((a) => a.attributes?.assigned === false);
