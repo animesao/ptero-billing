@@ -132,19 +132,34 @@ function getDefaultValueForVariable(varName) {
   const upper = varName.toUpperCase();
   const lower = varName.toLowerCase();
 
-  // Версии
-  if (lower.includes("version")) return "latest";
+  // Файлы - проверяем в первую очередь
+  if (upper === "SERVER_JARFILE" || upper === "JARFILE" || upper === "JAR_FILE") return "server.jar";
+  if (upper === "PY_FILE" || upper === "PYTHON_FILE") return "main.py";
+  if (upper === "JS_FILE" || upper === "NODE_FILE") return "index.js";
+  if (upper === "REQUIREMENTS_FILE") return "requirements.txt";
+  if (upper === "CONFIG_FILE") return "config.json";
+  if (upper === "BUILD_NUMBER") return "latest";
+  if (upper === "BUILD_TYPE") return "release";
+  if (upper === "USER_UPLOAD") return "0";
+  if (upper === "AUTO_UPDATE") return "1";
+  if (upper === "PY_PACKAGES") return "";
+
+  // Версии - специфичные
+  if (upper === "MC_VERSION" || upper === "MINECRAFT_VERSION") return "1.20.4";
+  if (upper === "PAPER_VERSION") return "latest";
+  if (upper === "SPIGOT_VERSION") return "latest";
+  if (upper === "FORGE_VERSION") return "latest";
+  if (upper === "FABRIC_VERSION") return "latest";
+  if (upper === "SPONGE_VERSION") return "latest";
+  if (upper === "VELOCITY_VERSION") return "latest";
+  if (upper === "BUNGEE_VERSION") return "latest";
+  if (upper === "WATERFALL_VERSION") return "latest";
   if (upper === "JAVA_VERSION") return "21";
   if (upper === "PYTHON_VERSION") return "3.13";
   if (upper === "NODE_VERSION") return "20";
 
-  // Файлы
-  if (upper.includes("JARFILE") || upper.includes("JAR_FILE"))
-    return "server.jar";
-  if (upper.includes("PY_FILE") || upper === "PYTHON_FILE") return "main.py";
-  if (upper.includes("JS_FILE") || upper === "NODE_FILE") return "index.js";
-  if (upper.includes("REQUIREMENTS")) return "requirements.txt";
-  if (upper.includes("CONFIG")) return "config.json";
+  // Версии - общее правило
+  if (lower.includes("version")) return "latest";
 
   // Флаги
   if (upper.includes("UPDATE")) return "1";
@@ -154,8 +169,7 @@ function getDefaultValueForVariable(varName) {
 
   // Пакеты
   if (upper.includes("PACKAGES") || upper.includes("DEPENDENCIES")) return "";
-  if (upper.includes("PIP") || upper.includes("NPM") || upper.includes("YARN"))
-    return "";
+  if (upper.includes("PIP") || upper.includes("NPM") || upper.includes("YARN")) return "";
 
   // Сеть
   if (upper.includes("PORT")) return "25565";
@@ -166,13 +180,9 @@ function getDefaultValueForVariable(varName) {
   if (upper.includes("CPU")) return "100";
   if (upper.includes("DISK")) return "5120";
 
-  // Minecraft специфичные
-  if (upper === "MC_VERSION" || upper === "MINECRAFT_VERSION") return "1.20.4";
-  if (upper === "SERVER_JARFILE" || upper === "JARFILE") return "server.jar";
-  if (upper === "BUILD_NUMBER") return "latest";
-  if (upper === "PAPER_VERSION") return "latest";
-  if (upper === "SPIGOT_VERSION") return "latest";
-  if (upper === "FORGE_VERSION") return "latest";
+  // Дефолтное значение
+  return "latest";
+}
   if (upper === "FABRIC_VERSION") return "latest";
   if (upper === "SPONGE_VERSION") return "latest";
   if (upper === "VELOCITY_VERSION") return "latest";
