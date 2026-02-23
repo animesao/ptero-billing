@@ -33,6 +33,7 @@ export const plans = sqliteTable("plans", {
   dockerImage: text("docker_image"),
   startup: text("startup"),
   environment: text("environment"),
+  pteroInstanceId: text("ptero_instance_id"), // ID инстанса Pterodactyl (для мульти-панели)
   isActive: integer("is_active").notNull().default(1),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: text("created_at").notNull(),

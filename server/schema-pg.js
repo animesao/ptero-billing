@@ -28,8 +28,12 @@ export const plans = pgTable('plans', {
   priceYearly: integer('price_yearly'),
   nestId: integer('nest_id'),
   eggId: integer('egg_id'),
-  nodeId: integer('node_id'),
-  locationId: integer('location_id'),
+  nodeIds: text('node_ids'), // JSON массив ID нод для случайного выбора
+  allocationId: integer('allocation_id'),
+  dockerImage: varchar('docker_image', { length: 255 }),
+  startup: text('startup'),
+  environment: text('environment'),
+  pteroInstanceId: varchar('ptero_instance_id', { length: 50 }), // ID инстанса Pterodactyl
   isActive: boolean('is_active').notNull().default(true),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),

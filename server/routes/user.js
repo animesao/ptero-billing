@@ -630,12 +630,41 @@ router.post("/orders", async (req, res) => {
       "username:",
       req.session.username,
     );
+
+    // Проверяем есть ли у пользователя pteroUserId, если нет - создаём
+    let pteroUserId = user.pteroUserId;
+    if (!pteroUserId) {
+      try {
+        console.log("No pteroUserId for user, creating in Pterodactyl...");
+        const pteroUser = await ptero.createPteroUser({
+          email: user.email,
+          username: user.username,
+          firstName: user.username,
+          lastName: 'User',
+          password: Math.random().toString(36).slice(-10), // Случайный пароль
+        });
+        pteroUserId = pteroUser.attributes.id;
+        // Обновляем пользователя в БД
+        await db.update(users).set({ pteroUserId }).where(eq(users.id, req.session.userId));
+        console.log("Pterodactyl user created:", pteroUserId);
+      } catch (pteroCreateError) {
+        console.error("Failed to create Pterodactyl user:", pteroCreateError.response?.data || pteroCreateError.message);
+        // Откатываем транзакцию - возвращаем баланс
+        await db.update(users).set({ balance: user.balance + amount }).where(eq(users.id, req.session.userId));
+        return res.status(500).json({
+          error: 'Не удалось создать пользователя в Pterodactyl',
+          details: pteroCreateError.response?.data?.errors?.[0]?.detail || pteroCreateError.message
+        });
+      }
+    }
+
     try {
       const pteroResult = await createPteroServer({
-        name: sName, // Это название сохраняется в БД и в Pterodactyl
+        name: sName,
         userId: req.session.userId,
         plan: planToUse,
-        pteroUserId: user.pteroUserId || 1,
+        pteroUserId: pteroUserId,
+        pteroInstanceId: planToUse.pteroInstanceId || null,
       });
 
       const pteroServerId = pteroResult.attributes?.id || null;

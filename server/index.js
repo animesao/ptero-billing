@@ -119,6 +119,7 @@ async function initDatabaseSQLite() {
     try { await client.execute(`ALTER TABLE plans ADD COLUMN docker_image TEXT`); } catch (e) { /* уже есть */ }
     try { await client.execute(`ALTER TABLE plans ADD COLUMN startup TEXT`); } catch (e) { /* уже есть */ }
     try { await client.execute(`ALTER TABLE plans ADD COLUMN environment TEXT`); } catch (e) { /* уже есть */ }
+    try { await client.execute(`ALTER TABLE plans ADD COLUMN ptero_instance_id TEXT`); } catch (e) { /* уже есть */ }
     await client.execute(`
       CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

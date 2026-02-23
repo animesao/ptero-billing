@@ -28,8 +28,12 @@ export const plans = mysqlTable('plans', {
   priceYearly: int('price_yearly'),
   nestId: int('nest_id'),
   eggId: int('egg_id'),
-  nodeId: int('node_id'),
-  locationId: int('location_id'),
+  nodeIds: text('node_ids'), // JSON массив ID нод для случайного выбора
+  allocationId: int('allocation_id'),
+  dockerImage: varchar('docker_image', { length: 255 }),
+  startup: text('startup'),
+  environment: text('environment'),
+  pteroInstanceId: varchar('ptero_instance_id', { length: 50 }), // ID инстанса Pterodactyl
   isActive: boolean('is_active').notNull().default(true),
   sortOrder: int('sort_order').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),
