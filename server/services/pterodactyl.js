@@ -314,13 +314,42 @@ export async function createServer({ name, userId, plan, pteroUserId }) {
   let eggDockerImage = plan.dockerImage;
   let environment = {};
   let eggVariablesReceived = false;
+  let actualNestId = plan.nestId;
+
+  // Если nestId не указан, но есть eggId, пробуем получить nestId из яйца
+  if (!actualNestId && plan.eggId) {
+    try {
+      const eggClient = getClient(config);
+      // Получаем все гнёзда и ищем нужное яйцо
+      const nestsResponse = await eggClient.get("/nests?per_page=100");
+      const nests = nestsResponse.data.data || [];
+
+      for (const nest of nests) {
+        try {
+          const eggResponse = await eggClient.get(
+            `/nests/${nest.attributes.id}/eggs/${plan.eggId}`,
+          );
+          const eggData = eggResponse.data;
+          if (eggData) {
+            actualNestId = nest.attributes.id;
+            console.log("Found nestId for egg:", actualNestId);
+            break;
+          }
+        } catch (e) {
+          // Яйцо не найдено в этом гнезде, продолжаем поиск
+        }
+      }
+    } catch (error) {
+      console.error("Error finding nestId:", error.message);
+    }
+  }
 
   // Всегда пытаемся получить данные из яйца Pterodactyl если есть nestId и eggId
-  if (plan.nestId && plan.eggId) {
+  if (actualNestId && plan.eggId) {
     try {
       const eggClient = getClient(config);
       const eggResponse = await eggClient.get(
-        `/nests/${plan.nestId}/eggs/${plan.eggId}`,
+        `/nests/${actualNestId}/eggs/${plan.eggId}`,
       );
       const eggData = eggResponse.data;
 

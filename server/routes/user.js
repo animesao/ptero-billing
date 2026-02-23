@@ -14,6 +14,11 @@ import {
 import { eq, desc, and } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth.js";
 import * as ptero from "../services/pterodactyl.js";
+import {
+  createPteroServer,
+  deletePteroServer,
+  getServerStatus,
+} from "../services/create-server.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -54,7 +59,7 @@ router.get("/servers", async (req, res) => {
     for (const server of result) {
       if (server.pteroServerId) {
         try {
-          const pteroStatus = await ptero.getServerStatus(server.pteroServerId);
+          const pteroStatus = await getServerStatus(server.pteroServerId);
           let newStatus = server.status;
 
           if (pteroStatus === "running") newStatus = "running";
@@ -518,7 +523,7 @@ router.post("/orders", async (req, res) => {
     const sName = serverName || `${plan.name}-${order.id}`;
     let serverRecord;
     try {
-      const pteroResult = await ptero.createServer({
+      const pteroResult = await createPteroServer({
         name: sName,
         userId: req.session.userId,
         plan: planToUse,
@@ -535,7 +540,7 @@ router.post("/orders", async (req, res) => {
       // Получаем статус сервера из Pterodactyl
       let status = "installing";
       try {
-        const pteroStatus = await ptero.getServerStatus(pteroServerId);
+        const pteroStatus = await getServerStatus(pteroServerId);
         console.log("Pterodactyl server status:", pteroStatus);
         if (pteroStatus === "installing") status = "installing";
         else if (pteroStatus === "running") status = "running";
