@@ -73,7 +73,8 @@ app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 app.use(express.static(path.join(__dirname, "..", "client", "dist")));
 
-app.get("/{*path}", (req, res) => {
+// Express 5 wildcard route syntax
+app.get("/*", (req, res) => {
   if (req.path.startsWith("/api/")) {
     return res.status(404).json({ error: "API endpoint not found" });
   }
