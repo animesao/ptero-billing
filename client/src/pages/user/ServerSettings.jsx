@@ -15,44 +15,46 @@ export default function ServerSettings() {
   const [plan, setPlan] = useState(null);
   const [eggs, setEggs] = useState([]);
   const [currentEggId, setCurrentEggId] = useState(null);
-  const [selectedEggId, setSelectedEggId] = useState('');
+  const [selectedEggId, setSelectedEggId] = useState("");
   const [formData, setFormData] = useState({
-    name: '',
-    cpu: '',
-    ramMb: '',
-    diskMb: '',
+    name: "",
+    cpu: "",
+    ramMb: "",
+    diskMb: "",
   });
 
   const loadSettings = () => {
     setLoading(true);
-    api.getUserServerSettings(id)
-      .then(data => {
+    api
+      .getUserServerSettings(id)
+      .then((data) => {
         setServer(data.server);
         setOrder(data.order);
         setPlan(data.plan);
         setFormData({
-          name: data.server?.name || '',
-          cpu: data.server?.cpu || '',
-          ramMb: data.server?.ramMb || '',
-          diskMb: data.server?.diskMb || '',
+          name: data.server?.name || "",
+          cpu: data.server?.cpu || "",
+          ramMb: data.server?.ramMb || "",
+          diskMb: data.server?.diskMb || "",
         });
       })
-      .catch(err => {
+      .catch((err) => {
         console.error(err);
-        alert('Ошибка загрузки настроек');
+        toast.error("Ошибка загрузки настроек");
       })
       .finally(() => setLoading(false));
   };
 
   const loadEggs = () => {
-    api.getServerEggs(id)
-      .then(data => {
+    api
+      .getServerEggs(id)
+      .then((data) => {
         setEggs(data.eggs || []);
         setCurrentEggId(data.currentEggId);
-        setSelectedEggId(data.currentEggId?.toString() || '');
+        setSelectedEggId(data.currentEggId?.toString() || "");
       })
-      .catch(err => {
-        console.error('Ошибка загрузки яиц:', err);
+      .catch((err) => {
+        console.error("Ошибка загрузки яиц:", err);
       });
   };
 
@@ -66,10 +68,10 @@ export default function ServerSettings() {
     setSaving(true);
     try {
       await api.updateUserServerSettings(id, formData);
-      toast.success('Настройки сохранены');
+      toast.success("Настройки сохранены");
       loadSettings();
     } catch (err) {
-      toast.error('Ошибка: ' + (err.response?.data?.error || err.message));
+      toast.error("Ошибка: " + (err.response?.data?.error || err.message));
     } finally {
       setSaving(false);
     }
@@ -77,47 +79,54 @@ export default function ServerSettings() {
 
   const handleChangeEgg = async () => {
     if (!selectedEggId || selectedEggId === currentEggId?.toString()) {
-      toast.warning('Выберите другое ядро');
+      toast.warning("Выберите другое ядро");
       return;
     }
 
-    if (!confirm(`Сменить ядро и переустановить сервер?\n\nВНИМАНИЕ: Все данные сервера будут удалены!`)) {
+    const selectedEgg = eggs.find((e) => e.id === parseInt(selectedEggId));
+    if (
+      !confirm(
+        `Сменить ядро на "${selectedEgg?.name}"?\n\n⚠️ ВНИМАНИЕ: Все данные сервера будут удалены!`,
+      )
+    ) {
       return;
     }
 
     setChangingEgg(true);
     try {
       await api.changeServerEgg(id, { eggId: parseInt(selectedEggId) });
-      toast.success('Сервер переустанавливается с новым ядром. Это может занять несколько минут.');
+      toast.success(
+        "Сервер переустанавливается с новым ядром. Это может занять несколько минут.",
+      );
       loadSettings();
       loadEggs();
     } catch (err) {
-      toast.error('Ошибка: ' + (err.response?.data?.error || err.message));
+      toast.error("Ошибка: " + (err.response?.data?.error || err.message));
     } finally {
       setChangingEgg(false);
     }
   };
 
   const handleRenew = async () => {
-    if (!confirm('Продлить сервер на текущий период?')) return;
+    if (!confirm("Продлить сервер на текущий период?")) return;
     try {
       await api.renewUserServer(id);
-      toast.success('Сервер продлён');
+      toast.success("Сервер продлён");
       loadSettings();
     } catch (err) {
-      toast.error('Ошибка: ' + (err.response?.data?.error || err.message));
+      toast.error("Ошибка: " + (err.response?.data?.error || err.message));
     }
   };
 
   const formatExpiresAt = (dateString) => {
-    if (!dateString) return '—';
+    if (!dateString) return "—";
     const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return date.toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -129,7 +138,7 @@ export default function ServerSettings() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="w-12 h-12 border-4 border-[#dc143c]/20 border-t-[#dc143c] rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -137,150 +146,269 @@ export default function ServerSettings() {
   if (!server) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Сервер не найден</h2>
-        <Link to="/servers" className="btn-primary">Назад к серверам</Link>
+        <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-[#dc143c]/20 to-[#ff1493]/20 border border-[#dc143c]/30 flex items-center justify-center animate-float">
+          <svg
+            className="w-10 h-10 text-[#dc143c]"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+            />
+          </svg>
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2">Сервер не найден</h2>
+        <p className="text-[#666] mb-6">
+          Запрашиваемый сервер не существует или удалён
+        </p>
+        <Link to="/servers" className="btn-primary inline-block">
+          ← Назад к серверам
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-in">
-      <div className="mb-6">
-        <Link to="/servers" className="text-primary-600 hover:underline text-sm flex items-center gap-1">
-          ← Назад к серверам
+    <div className="animate-fade-in space-y-6">
+      {/* Заголовок */}
+      <div className="flex items-center gap-4">
+        <Link
+          to="/servers"
+          className="text-[#dc143c] hover:text-[#ff1493] transition-colors flex items-center gap-1"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
         </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-white">{server.name}</h1>
+          <p className="text-[#666] text-sm">Настройки сервера</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Основные настройки */}
+        {/* Основная колонка */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="glass-card p-6">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-6">Основные настройки</h2>
+          {/* Основные настройки */}
+          <div className="glass-card p-6 animate-slide-up">
+            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <svg
+                className="w-5 h-5 text-[#dc143c]"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              Основные настройки
+            </h2>
             <form onSubmit={handleSave} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-[#a0a0a0] mb-2">
                   Название сервера
                 </label>
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 outline-none"
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  className="input-primary w-full"
+                  placeholder="Мой сервер"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-[#a0a0a0] mb-2">
                     CPU (%)
                   </label>
                   <input
                     type="number"
                     value={formData.cpu}
-                    onChange={e => setFormData({ ...formData, cpu: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, cpu: e.target.value })
+                    }
                     max={plan?.cpu || 100}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 outline-none"
+                    className="input-primary w-full"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Макс: {plan?.cpu}%</p>
+                  <p className="text-xs text-[#666] mt-1">Макс: {plan?.cpu}%</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-[#a0a0a0] mb-2">
                     RAM (MB)
                   </label>
                   <input
                     type="number"
                     value={formData.ramMb}
-                    onChange={e => setFormData({ ...formData, ramMb: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, ramMb: e.target.value })
+                    }
                     max={plan?.ramMb || 1024}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 outline-none"
+                    className="input-primary w-full"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Макс: {plan?.ramMb} MB</p>
+                  <p className="text-xs text-[#666] mt-1">
+                    Макс: {plan?.ramMb} MB
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-[#a0a0a0] mb-2">
                     Диск (MB)
                   </label>
                   <input
                     type="number"
                     value={formData.diskMb}
-                    onChange={e => setFormData({ ...formData, diskMb: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, diskMb: e.target.value })
+                    }
                     max={plan?.diskMb || 5120}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 outline-none"
+                    className="input-primary w-full"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Макс: {plan?.diskMb} MB</p>
+                  <p className="text-xs text-[#666] mt-1">
+                    Макс: {plan?.diskMb} MB
+                  </p>
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-cyan-700 transition disabled:opacity-50"
-                >
-                  {saving ? 'Сохранение...' : 'Сохранить'}
-                </button>
-              </div>
+              <button
+                type="submit"
+                disabled={saving}
+                className="btn-primary w-full md:w-auto px-8 py-3 disabled:opacity-50"
+              >
+                {saving ? "Сохранение..." : "Сохранить"}
+              </button>
             </form>
           </div>
 
           {/* Смена ядра */}
-          <div className="glass-card p-6">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Смена ядра (Egg)</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Выберите другое ядро для переустановки сервера. Все данные будут удалены.
+          <div className="glass-card p-6 animate-slide-up">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <svg
+                className="w-5 h-5 text-[#dc143c]"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                />
+              </svg>
+              Смена ядра (Egg)
+            </h2>
+            <p className="text-sm text-[#666] mb-6">
+              Выберите другое ядро для переустановки сервера. Все данные будут
+              удалены.
             </p>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-[#a0a0a0] mb-2">
                   Доступные ядра
                 </label>
                 <select
                   value={selectedEggId}
-                  onChange={e => setSelectedEggId(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 outline-none"
+                  onChange={(e) => setSelectedEggId(e.target.value)}
+                  className="input-primary w-full"
                 >
-                  {eggs.map(egg => (
-                    <option key={egg.id} value={egg.id}>
-                      {egg.name} {egg.id === currentEggId ? '(текущее)' : ''}
-                    </option>
-                  ))}
+                  {eggs.length === 0 ? (
+                    <option value="">Загрузка...</option>
+                  ) : (
+                    eggs.map((egg) => (
+                      <option key={egg.id} value={egg.id}>
+                        {egg.name} {egg.id === currentEggId ? "(текущее)" : ""}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
-              {eggs.find(e => e.id === parseInt(selectedEggId)) && (
-                <div className="p-4 rounded-lg bg-gray-50/80 dark:bg-gray-700/50 text-sm">
-                  <p className="text-gray-700 dark:text-gray-300">
-                    <strong>Docker Image:</strong> {eggs.find(e => e.id === parseInt(selectedEggId))?.dockerImage}
-                  </p>
-                  <p className="text-gray-700 dark:text-gray-300 mt-1">
-                    <strong>Startup:</strong> {eggs.find(e => e.id === parseInt(selectedEggId))?.startup}
-                  </p>
-                </div>
-              )}
+              {selectedEggId &&
+                eggs.find((e) => e.id === parseInt(selectedEggId)) && (
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                    <p className="text-sm text-[#a0a0a0]">
+                      <span className="text-[#666]">Docker Image:</span>{" "}
+                      <span className="font-mono text-xs">
+                        {
+                          eggs.find((e) => e.id === parseInt(selectedEggId))
+                            ?.dockerImage
+                        }
+                      </span>
+                    </p>
+                  </div>
+                )}
               <button
                 onClick={handleChangeEgg}
-                disabled={changingEgg || !selectedEggId || selectedEggId === currentEggId?.toString()}
-                className="px-6 py-2 bg-gradient-to-r from-orange-500 to-red-600 text-white font-medium rounded-lg hover:from-orange-600 hover:to-red-700 transition disabled:opacity-50"
+                disabled={
+                  changingEgg ||
+                  !selectedEggId ||
+                  selectedEggId === currentEggId?.toString()
+                }
+                className="btn-danger w-full py-3 disabled:opacity-50"
               >
-                {changingEgg ? 'Переустановка...' : 'Сменить ядро и переустановить'}
+                {changingEgg ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                    Переустановка...
+                  </span>
+                ) : (
+                  "Сменить ядро и переустановить"
+                )}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Информация о заказе */}
+        {/* Боковая колонка */}
         <div className="space-y-6">
-          <div className="glass-card p-6">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Информация о заказе</h2>
+          {/* Информация о заказе */}
+          <div className="glass-card p-6 animate-slide-up">
+            <h2 className="text-lg font-bold text-white mb-4">
+              Информация о заказе
+            </h2>
             <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Статус</span>
-                <span className={`font-semibold ${order?.status === 'active' ? 'text-green-500' : 'text-gray-800 dark:text-gray-100'}`}>
-                  {order?.status || '—'}
+              <div className="flex justify-between items-center">
+                <span className="text-[#666]">Статус</span>
+                <span
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    order?.status === "active"
+                      ? "bg-green-500/20 text-green-400"
+                      : "bg-white/10 text-white"
+                  }`}
+                >
+                  {order?.status || "—"}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Истекает</span>
-                <span className={`font-semibold ${isExpired(order?.expiresAt) ? 'text-red-500' : 'text-gray-800 dark:text-gray-100'}`}>
+              <div className="flex justify-between items-center">
+                <span className="text-[#666]">Истекает</span>
+                <span
+                  className={`font-medium ${isExpired(order?.expiresAt) ? "text-red-400" : "text-white"}`}
+                >
                   {formatExpiresAt(order?.expiresAt)}
                 </span>
               </div>
@@ -289,27 +417,45 @@ export default function ServerSettings() {
             {order && (
               <button
                 onClick={handleRenew}
-                className="w-full mt-4 py-2 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition"
+                className="w-full mt-4 py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-xl hover:from-green-600 hover:to-emerald-700 transition"
               >
                 Продлить сервер
               </button>
             )}
           </div>
 
-          <div className="glass-card p-6">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Действия</h2>
-            <div className="space-y-2">
-              {server.pteroIdentifier && (
-                <a
-                  href={`https://panel.amethystcloud.online/server/${server.pteroIdentifier}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full py-2 px-4 bg-gradient-to-r from-blue-500 to-cyan-600 text-white text-center font-medium rounded-lg hover:from-blue-600 hover:to-cyan-700 transition"
-                >
+          {/* Действия */}
+          <div className="glass-card p-6 animate-slide-up">
+            <h2 className="text-lg font-bold text-white mb-4">Действия</h2>
+            {server.pteroIdentifier ? (
+              <a
+                href={`https://panel.amethystcloud.online/server/${server.pteroIdentifier}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary w-full block text-center"
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
                   Открыть панель управления
-                </a>
-              )}
-            </div>
+                </span>
+              </a>
+            ) : (
+              <div className="text-center py-3 text-[#666] text-sm">
+                Панель управления будет доступна после создания сервера
+              </div>
+            )}
           </div>
         </div>
       </div>

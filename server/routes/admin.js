@@ -150,7 +150,7 @@ router.delete("/users/:id", async (req, res) => {
     const [user] = await db.select().from(users).where(eq(users.id, userId));
     if (!user) return res.status(404).json({ error: "Пользователь не найден" });
 
-    // Удаляем серверы пользователя в Pterodactyl
+    // 1. Удаляем серверы пользователя в Pterodactyl
     const userServers = await db
       .select()
       .from(servers)
@@ -168,18 +168,28 @@ router.delete("/users/:id", async (req, res) => {
       }
     }
 
-    // Удаляем все серверы из БД
-    await db.delete(servers).where(eq(servers.userId, userId));
+    // 2. Получаем ID заказов для удаления payments
+    const userOrders = await db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.userId, userId));
+    const orderIds = userOrders.map((o) => o.id);
 
-    // Удаляем платежи (сначала - они ссылаются на users и orders)
+    // 3. Удаляем payments по orderId (сначала - они ссылаются на orders)
+    if (orderIds.length > 0) {
+      for (const orderId of orderIds) {
+        await db.delete(payments).where(eq(payments.orderId, orderId));
+      }
+    }
+    // Удаляем payments по userId
     await db.delete(payments).where(eq(payments.userId, userId));
 
-    // Удаляем заказы (сначала - payments могут ссылаться на orders)
-    await db.delete(orders).where(eq(orders.userId, userId));
+    // 4. Удаляем все серверы из БД (ссылаются на users и orders)
+    await db.delete(servers).where(eq(servers.userId, userId));
 
-    // Удаляем сообщения тикетов (сначала - они ссылаются на tickets и users)
+    // 5. Удаляем сообщения тикетов (ссылаются на tickets и users)
     const userTickets = await db
-      .select()
+      .select({ id: tickets.id })
       .from(tickets)
       .where(eq(tickets.userId, userId));
     for (const ticket of userTickets) {
@@ -188,10 +198,13 @@ router.delete("/users/:id", async (req, res) => {
         .where(eq(ticketMessages.ticketId, ticket.id));
     }
 
-    // Удаляем тикеты
+    // 6. Удаляем тикеты
     await db.delete(tickets).where(eq(tickets.userId, userId));
 
-    // Удаляем пользователя в Pterodactyl
+    // 7. Удаляем заказы (после payments и servers)
+    await db.delete(orders).where(eq(orders.userId, userId));
+
+    // 8. Удаляем пользователя в Pterodactyl
     if (user.pteroUserId) {
       try {
         await ptero.deleteUser(user.pteroUserId);
@@ -201,10 +214,10 @@ router.delete("/users/:id", async (req, res) => {
       }
     }
 
-    // Удаляем пользователя из БД (в конце - после удаления всех связанных записей)
+    // 9. Удаляем пользователя из БД (в конце)
     await db.delete(users).where(eq(users.id, userId));
 
-    // Создаём запись в audit log
+    // 10. Создаём запись в audit log
     await db.insert(auditLogs).values({
       actorId: req.session.userId,
       action: "user_delete",

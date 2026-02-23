@@ -21,6 +21,10 @@ export const api = {
 
   getPlans: () => request("/api/user/plans"),
   getPterodactylNests: () => request("/api/user/pterodactyl/nests"),
+  getPterodactylEggs: (nestId) =>
+    request(`/api/user/pterodactyl/nests/${nestId}/eggs`),
+  getServerAvailableEggs: (serverId) =>
+    request(`/api/user/servers/${serverId}/available-eggs`),
   getServers: () => request("/api/user/servers"),
   getOrders: () => request("/api/user/orders"),
   createOrder: (d) =>

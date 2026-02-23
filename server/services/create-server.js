@@ -144,6 +144,8 @@ function getDefaultValueForVariable(varName) {
   if (upper === "USER_UPLOAD") return "0";
   if (upper === "AUTO_UPDATE") return "1";
   if (upper === "PY_PACKAGES") return "";
+  if (upper === "VANILLA_VERSION") return "latest";
+  if (upper === "SPONGE_VERSION") return "latest";
 
   // Версии - специфичные
   if (upper === "MC_VERSION" || upper === "MINECRAFT_VERSION") return "1.20.4";
@@ -286,7 +288,7 @@ async function getLeastLoadedNode(client) {
 /**
  * Построить переменные окружения для сервера
  */
-function buildEnvironment(eggVariables, startup, dockerImage) {
+function buildEnvironment(eggVariables, startup, dockerImage, serverName = "") {
   const environment = {};
 
   // Если есть переменные из API, используем их
@@ -296,60 +298,193 @@ function buildEnvironment(eggVariables, startup, dockerImage) {
         environment[variable.env_variable] = variable.default_value || "latest";
       }
     }
-    return environment;
   }
 
   // Если переменных нет, извлекаем из startup
-  const extractedVars = extractVariablesFromStartup(startup);
-  if (extractedVars.length > 0) {
+  if (Object.keys(environment).length === 0) {
+    const extractedVars = extractVariablesFromStartup(startup);
     for (const variable of extractedVars) {
       environment[variable.env_variable] = variable.default_value || "";
     }
-    return environment;
   }
 
-  // Если всё ещё нет, определяем тип сервера и добавляем стандартные переменные
+  // Определяем тип сервера по имени, startup и docker image
+  const nameLower = serverName.toLowerCase();
   const startupLower = (startup || "").toLowerCase();
   const dockerLower = (dockerImage || "").toLowerCase();
 
-  if (startupLower.includes("bungee") || dockerLower.includes("bungee")) {
-    environment.BUNGEE_VERSION = "latest";
-    environment.SERVER_JARFILE = "bungeecord.jar";
-  } else if (
+  // Sponge
+  if (
+    nameLower.includes("sponge") ||
+    startupLower.includes("sponge") ||
+    dockerLower.includes("sponge")
+  ) {
+    if (!environment.SERVER_JARFILE)
+      environment.SERVER_JARFILE = "spongeforge.jar";
+    if (!environment.SPONGE_VERSION) environment.SPONGE_VERSION = "latest";
+    if (!environment.MINECRAFT_VERSION)
+      environment.MINECRAFT_VERSION = "latest";
+  }
+  // Bungeecord - проверяем раньше других
+  else if (
+    nameLower.includes("bungee") ||
+    startupLower.includes("bungee") ||
+    dockerLower.includes("bungee") ||
+    nameLower.includes("bungeecord")
+  ) {
+    if (!environment.BUNGEE_VERSION) environment.BUNGEE_VERSION = "latest";
+    if (!environment.SERVER_JARFILE)
+      environment.SERVER_JARFILE = "bungeecord.jar";
+  }
+  // Python яйца
+  else if (
+    nameLower.includes("python") ||
+    startupLower.includes("python") ||
+    startupLower.includes("pip install") ||
+    dockerLower.includes("python")
+  ) {
+    if (!environment.AUTO_UPDATE) environment.AUTO_UPDATE = "1";
+    if (!environment.PY_FILE) environment.PY_FILE = "main.py";
+    if (!environment.REQUIREMENTS_FILE)
+      environment.REQUIREMENTS_FILE = "requirements.txt";
+    if (!environment.PY_PACKAGES) environment.PY_PACKAGES = "";
+    if (!environment.USER_UPLOAD) environment.USER_UPLOAD = "0";
+  }
+  // Bungeecord
+  else if (startupLower.includes("bungee") || dockerLower.includes("bungee")) {
+    if (!environment.BUNGEE_VERSION) environment.BUNGEE_VERSION = "latest";
+    if (!environment.SERVER_JARFILE)
+      environment.SERVER_JARFILE = "bungeecord.jar";
+  }
+  // Velocity
+  else if (
     startupLower.includes("velocity") ||
     dockerLower.includes("velocity")
   ) {
-    environment.VELOCITY_VERSION = "latest";
-    environment.SERVER_JARFILE = "velocity.jar";
-  } else if (startupLower.includes("forge") || dockerLower.includes("forge")) {
-    environment.FORGE_VERSION = "latest";
-    environment.MINECRAFT_VERSION = "latest";
-    environment.SERVER_JARFILE = "server.jar";
-  } else if (
+    if (!environment.VELOCITY_VERSION) environment.VELOCITY_VERSION = "latest";
+    if (!environment.SERVER_JARFILE)
+      environment.SERVER_JARFILE = "velocity.jar";
+  }
+  // Forge
+  else if (startupLower.includes("forge") || dockerLower.includes("forge")) {
+    if (!environment.FORGE_VERSION) environment.FORGE_VERSION = "latest";
+    if (!environment.MINECRAFT_VERSION)
+      environment.MINECRAFT_VERSION = "latest";
+    if (!environment.SERVER_JARFILE) environment.SERVER_JARFILE = "server.jar";
+  }
+  // Fabric
+  else if (startupLower.includes("fabric") || dockerLower.includes("fabric")) {
+    if (!environment.FABRIC_VERSION) environment.FABRIC_VERSION = "latest";
+    if (!environment.MINECRAFT_VERSION)
+      environment.MINECRAFT_VERSION = "latest";
+    if (!environment.SERVER_JARFILE) environment.SERVER_JARFILE = "server.jar";
+  }
+  // Paper/Spigot
+  else if (
+    nameLower.includes("paper") ||
+    nameLower.includes("spigot") ||
+    startupLower.includes("paper") ||
+    startupLower.includes("spigot") ||
+    dockerLower.includes("paper")
+  ) {
+    if (!environment.SERVER_JARFILE) environment.SERVER_JARFILE = "server.jar";
+    if (!environment.BUILD_NUMBER) environment.BUILD_NUMBER = "latest";
+    if (!environment.MINECRAFT_VERSION)
+      environment.MINECRAFT_VERSION = "latest";
+  }
+  // Forge
+  else if (
+    nameLower.includes("forge") ||
+    startupLower.includes("forge") ||
+    dockerLower.includes("forge")
+  ) {
+    if (!environment.FORGE_VERSION) environment.FORGE_VERSION = "latest";
+    if (!environment.MINECRAFT_VERSION)
+      environment.MINECRAFT_VERSION = "latest";
+    if (!environment.SERVER_JARFILE) environment.SERVER_JARFILE = "server.jar";
+  }
+  // Fabric
+  else if (
+    nameLower.includes("fabric") ||
     startupLower.includes("fabric") ||
     dockerLower.includes("fabric")
   ) {
-    environment.FABRIC_VERSION = "latest";
-    environment.MINECRAFT_VERSION = "latest";
-    environment.SERVER_JARFILE = "server.jar";
-  } else if (startupLower.includes("paper") || dockerLower.includes("paper")) {
-    environment.PAPER_VERSION = "latest";
-    environment.SERVER_JARFILE = "server.jar";
-    environment.MINECRAFT_VERSION = "latest";
-  } else if (
-    startupLower.includes("python") ||
-    dockerLower.includes("python")
-  ) {
-    environment.AUTO_UPDATE = "1";
-    environment.PY_FILE = "main.py";
-    environment.REQUIREMENTS_FILE = "requirements.txt";
-    environment.PY_PACKAGES = "";
-    environment.USER_UPLOAD = "0";
-  } else {
-    // Дефолтные значения
-    environment.SERVER_JARFILE = "server.jar";
-    environment.MINECRAFT_VERSION = "latest";
+    if (!environment.FABRIC_VERSION) environment.FABRIC_VERSION = "latest";
+    if (!environment.MINECRAFT_VERSION)
+      environment.MINECRAFT_VERSION = "latest";
+    if (!environment.SERVER_JARFILE) environment.SERVER_JARFILE = "server.jar";
   }
+  // Bungeecord
+  else if (
+    nameLower.includes("bungee") ||
+    startupLower.includes("bungee") ||
+    dockerLower.includes("bungee")
+  ) {
+    if (!environment.BUNGEE_VERSION) environment.BUNGEE_VERSION = "latest";
+    if (!environment.SERVER_JARFILE)
+      environment.SERVER_JARFILE = "bungeecord.jar";
+  }
+  // Velocity
+  else if (
+    nameLower.includes("velocity") ||
+    startupLower.includes("velocity") ||
+    dockerLower.includes("velocity")
+  ) {
+    if (!environment.VELOCITY_VERSION) environment.VELOCITY_VERSION = "latest";
+    if (!environment.SERVER_JARFILE)
+      environment.SERVER_JARFILE = "velocity.jar";
+  }
+  // Vanilla (просто Java сервер)
+  else if (
+    nameLower.includes("vanilla") ||
+    startupLower.includes("java") ||
+    startupLower.includes("jar") ||
+    startupLower.includes("vanilla")
+  ) {
+    if (!environment.SERVER_JARFILE) environment.SERVER_JARFILE = "server.jar";
+    if (!environment.VANILLA_VERSION) environment.VANILLA_VERSION = "latest";
+    if (!environment.MINECRAFT_VERSION)
+      environment.MINECRAFT_VERSION = "latest";
+  }
+  // Дефолтные значения
+  else {
+    if (!environment.SERVER_JARFILE) environment.SERVER_JARFILE = "server.jar";
+    if (!environment.VANILLA_VERSION) environment.VANILLA_VERSION = "latest";
+    if (!environment.MINECRAFT_VERSION)
+      environment.MINECRAFT_VERSION = "latest";
+  }
+
+  return environment;
+}
+
+/**
+ * Добавить все возможные переменные для всех типов серверов
+ */
+function addAllServerVariables(environment) {
+  // Добавляем все возможные переменные с дефолтными значениями
+  if (!environment.BUNGEE_VERSION) environment.BUNGEE_VERSION = "latest";
+  if (!environment.BUNGEE_JARFILE)
+    environment.BUNGEE_JARFILE = "bungeecord.jar";
+  if (!environment.VELOCITY_VERSION) environment.VELOCITY_VERSION = "latest";
+  if (!environment.VELOCITY_JARFILE)
+    environment.VELOCITY_JARFILE = "velocity.jar";
+  if (!environment.FORGE_VERSION) environment.FORGE_VERSION = "latest";
+  if (!environment.FABRIC_VERSION) environment.FABRIC_VERSION = "latest";
+  if (!environment.SPONGE_VERSION) environment.SPONGE_VERSION = "latest";
+  if (!environment.PAPER_VERSION) environment.PAPER_VERSION = "latest";
+  if (!environment.SPIGOT_VERSION) environment.SPIGOT_VERSION = "latest";
+  if (!environment.VANILLA_VERSION) environment.VANILLA_VERSION = "latest";
+  if (!environment.SERVER_JARFILE) environment.SERVER_JARFILE = "server.jar";
+  if (!environment.MINECRAFT_VERSION) environment.MINECRAFT_VERSION = "latest";
+  if (!environment.BUILD_NUMBER) environment.BUILD_NUMBER = "latest";
+  if (!environment.BUILD_TYPE) environment.BUILD_TYPE = "release";
+  if (!environment.JAVA_VERSION) environment.JAVA_VERSION = "21";
+  if (!environment.AUTO_UPDATE) environment.AUTO_UPDATE = "1";
+  if (!environment.PY_FILE) environment.PY_FILE = "main.py";
+  if (!environment.REQUIREMENTS_FILE)
+    environment.REQUIREMENTS_FILE = "requirements.txt";
+  if (!environment.PY_PACKAGES) environment.PY_PACKAGES = "";
+  if (!environment.USER_UPLOAD) environment.USER_UPLOAD = "0";
 
   return environment;
 }
@@ -357,7 +492,13 @@ function buildEnvironment(eggVariables, startup, dockerImage) {
 /**
  * Создать сервер Pterodactyl
  */
-export async function createPteroServer({ name, userId, plan, pteroUserId }) {
+export async function createPteroServer({
+  name,
+  userId,
+  plan,
+  pteroUserId,
+  serverNameOverride,
+}) {
   const config = await getConfig();
   const client = getClient(config);
 
@@ -384,6 +525,7 @@ export async function createPteroServer({ name, userId, plan, pteroUserId }) {
   let eggStartup = plan.startup;
   let eggDockerImage = plan.dockerImage;
   let eggVariables = [];
+  let eggName = ""; // Название яйца
 
   if (actualNestId && plan.eggId) {
     console.log(
@@ -399,9 +541,18 @@ export async function createPteroServer({ name, userId, plan, pteroUserId }) {
         `/nests/${actualNestId}/eggs/${plan.eggId}`,
       );
       if (eggResponse.data.attributes) {
-        eggStartup = eggResponse.data.attributes.startup || eggStartup;
-        eggDockerImage =
-          eggResponse.data.attributes.docker_image || eggDockerImage;
+        eggName = eggResponse.data.attributes.name || "";
+        console.log("Got egg name:", eggName);
+
+        // Берём startup строку ПОЛНОСТЬЮ из яйца
+        if (eggResponse.data.attributes.startup) {
+          eggStartup = eggResponse.data.attributes.startup;
+          console.log("Got startup from egg:", eggStartup);
+        }
+        if (eggResponse.data.attributes.docker_image) {
+          eggDockerImage = eggResponse.data.attributes.docker_image;
+          console.log("Got docker_image from egg:", eggDockerImage);
+        }
       }
     } catch (e) {
       console.error("Error getting egg info:", e.message);
@@ -412,21 +563,58 @@ export async function createPteroServer({ name, userId, plan, pteroUserId }) {
     console.log("Got egg variables:", JSON.stringify(eggVariables));
   }
 
-  // 3. Строим переменные окружения
+  // 3. Строим переменные окружения с учетом имени сервера
   const environment = buildEnvironment(
     eggVariables,
     eggStartup,
     eggDockerImage,
+    name,
   );
   console.log("Environment variables:", JSON.stringify(environment));
 
-  // 4. Используем дефолтные startup/docker_image если не получены
+  // 3b. Добавляем все возможные переменные для совместимости
+  addAllServerVariables(environment);
+  console.log("Environment with all variables:", JSON.stringify(environment));
+
+  // 4. Определяем тип сервера по названию яйца и подставляем правильную startup строку
+  const eggNameLower = (eggName || "").toLowerCase();
   let finalStartup = eggStartup;
   let finalDockerImage = eggDockerImage;
 
-  if (!finalStartup) {
-    finalStartup = "java -Xms128M -Xmx${SERVER_MEMORY}M -jar ${SERVER_JARFILE}";
-    console.log("Using default startup:", finalStartup);
+  // Если startup строка не соответствует типу сервера, исправляем
+  if (eggNameLower.includes("bungee") || eggNameLower.includes("bungeecord")) {
+    // Для Bungeecord нужна простая startup строка
+    finalStartup =
+      "java -Xms128M -Xmx${SERVER_MEMORY}M -jar {{SERVER_JARFILE}}";
+    console.log("Using Bungeecord startup:", finalStartup);
+  } else if (eggNameLower.includes("velocity")) {
+    finalStartup =
+      "java -Xms128M -Xmx${SERVER_MEMORY}M -jar {{SERVER_JARFILE}}";
+    console.log("Using Velocity startup:", finalStartup);
+  } else if (
+    eggNameLower.includes("paper") ||
+    eggNameLower.includes("spigot")
+  ) {
+    // Для Paper/Spigot используем Java startup с MaxRAMPercentage
+    finalStartup =
+      "java -Xms128M -XX:MaxRAMPercentage=95.0 -Dterminal.jline=false -Dterminal.ansi=true -jar {{SERVER_JARFILE}}";
+    console.log("Using Paper/Spigot startup:", finalStartup);
+  } else if (eggNameLower.includes("forge")) {
+    finalStartup =
+      "java -Xms128M -Xmx${SERVER_MEMORY}M -jar {{SERVER_JARFILE}}";
+    console.log("Using Forge startup:", finalStartup);
+  } else if (eggNameLower.includes("fabric")) {
+    finalStartup =
+      "java -Xms128M -Xmx${SERVER_MEMORY}M -jar {{SERVER_JARFILE}}";
+    console.log("Using Fabric startup:", finalStartup);
+  } else if (eggNameLower.includes("sponge")) {
+    finalStartup =
+      "java -Xms128M -Xmx${SERVER_MEMORY}M -jar {{SERVER_JARFILE}}";
+    console.log("Using Sponge startup:", finalStartup);
+  } else if (eggNameLower.includes("python")) {
+    finalStartup =
+      'if [[ -d .git ]] && [[ "{{AUTO_UPDATE}}" == "1" ]]; then git pull; fi; if [[ ! -z "{{PY_PACKAGES}}" ]]; then pip install -U --prefix .local {{PY_PACKAGES}}; fi; if [[ -f /home/container/${REQUIREMENTS_FILE} ]]; then pip install -U --prefix .local -r ${REQUIREMENTS_FILE}; fi; /usr/local/bin/python /home/container/{{PY_FILE}}';
+    console.log("Using Python startup:", finalStartup);
   }
 
   if (!finalDockerImage) {
@@ -468,11 +656,11 @@ export async function createPteroServer({ name, userId, plan, pteroUserId }) {
 
   // 7. Формируем payload
   const payload = {
-    name: name,
+    name: name, // Название из формы заказа
     user: pteroUserId,
     egg: plan.eggId,
     docker_image: finalDockerImage,
-    startup: finalStartup,
+    startup: finalStartup, // Startup строка из яйца
     environment: environment,
     limits: {
       memory: plan.ramMb || 1024,
@@ -487,6 +675,9 @@ export async function createPteroServer({ name, userId, plan, pteroUserId }) {
       allocations: plan.slots || 1,
     },
   };
+
+  console.log("Final payload startup:", finalStartup);
+  console.log("Final payload docker_image:", finalDockerImage);
 
   if (actualNestId) payload.nest = actualNestId;
 

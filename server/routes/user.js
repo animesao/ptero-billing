@@ -47,6 +47,68 @@ router.get("/pterodactyl/nests", async (req, res) => {
   }
 });
 
+// Получить яйца для гнезда (для смены ядра сервера)
+router.get("/pterodactyl/nests/:nestId/eggs", async (req, res) => {
+  try {
+    const nestId = parseInt(req.params.nestId);
+    const eggs = await ptero.getEggsInNest(nestId);
+    res.json(eggs);
+  } catch (error) {
+    console.error("Error getting eggs:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Получить доступные яйца для сервера (для смены ядра)
+router.get("/servers/:serverId/available-eggs", async (req, res) => {
+  try {
+    const serverId = parseInt(req.params.serverId);
+
+    // Получаем сервер
+    const [server] = await db
+      .select()
+      .from(servers)
+      .where(
+        and(eq(servers.id, serverId), eq(servers.userId, req.session.userId)),
+      );
+
+    if (!server) {
+      return res.status(404).json({ error: "Сервер не найден" });
+    }
+
+    // Получаем заказ и тариф сервера
+    const [order] = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, server.orderId));
+
+    if (!order) {
+      return res.status(404).json({ error: "Заказ не найден" });
+    }
+
+    const [plan] = await db
+      .select()
+      .from(plans)
+      .where(eq(plans.id, order.planId));
+
+    if (!plan) {
+      return res.status(404).json({ error: "Тариф не найден" });
+    }
+
+    // Получаем все яйца из того же гнезда
+    const eggs = await ptero.getEggsInNest(plan.nestId);
+
+    res.json({
+      currentEggId: plan.eggId,
+      nestId: plan.nestId,
+      eggs,
+    });
+  } catch (error) {
+    console.error("Error getting available eggs:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/servers", async (req, res) => {
   try {
     const result = await db
@@ -327,11 +389,34 @@ router.get("/servers/:id/eggs", async (req, res) => {
 
     if (!plan) return res.status(404).json({ error: "Тариф не найден" });
 
+    // Если nestId не указан, пробуем получить его из яйца
+    let nestId = plan.nestId;
+    if (!nestId && plan.eggId) {
+      // Получаем все гнёзда и ищем нужное яйцо
+      try {
+        const nests = await ptero.getNestsWithEggs();
+        for (const nest of nests) {
+          const egg = nest.eggs?.find((e) => e.id === plan.eggId);
+          if (egg) {
+            nestId = nest.id;
+            break;
+          }
+        }
+      } catch (e) {
+        console.error("Error finding nestId:", e.message);
+      }
+    }
+
+    if (!nestId) {
+      return res.status(404).json({ error: "Гнездо не найдено" });
+    }
+
     // Получаем все яйца из того же гнезда (nest)
-    const eggs = await ptero.getEggsInNest(plan.nestId);
+    const eggs = await ptero.getEggsInNest(nestId);
 
     res.json({
       currentEggId: plan.eggId,
+      nestId: nestId,
       eggs,
     });
   } catch (error) {
@@ -375,8 +460,25 @@ router.post("/servers/:id/change-egg", async (req, res) => {
       .where(eq(plans.id, order.planId));
     if (!plan) return res.status(404).json({ error: "Тариф не найден" });
 
+    // Если nestId не указан, находим его
+    let actualNestId = plan.nestId;
+    if (!actualNestId && plan.eggId) {
+      try {
+        const nests = await ptero.getNestsWithEggs();
+        for (const nest of nests) {
+          const egg = nest.eggs?.find((e) => e.id === plan.eggId);
+          if (egg) {
+            actualNestId = nest.id;
+            break;
+          }
+        }
+      } catch (e) {
+        console.error("Error finding nestId:", e.message);
+      }
+    }
+
     // Получаем информацию о новом яйце
-    const egg = await ptero.getEgg(plan.nestId, eggId);
+    const egg = await ptero.getEgg(actualNestId, eggId);
     if (!egg) return res.status(404).json({ error: "Яйцо не найдено" });
 
     // Получаем ID пользователя в Pterodactyl
@@ -522,9 +624,15 @@ router.post("/orders", async (req, res) => {
     // Create server
     const sName = serverName || `${plan.name}-${order.id}`;
     let serverRecord;
+    console.log(
+      "Creating server for user:",
+      req.session.userId,
+      "username:",
+      req.session.username,
+    );
     try {
       const pteroResult = await createPteroServer({
-        name: sName,
+        name: sName, // Это название сохраняется в БД и в Pterodactyl
         userId: req.session.userId,
         plan: planToUse,
         pteroUserId: user.pteroUserId || 1,
@@ -536,6 +644,13 @@ router.post("/orders", async (req, res) => {
       // Получаем allocation ID из ответа Pterodactyl
       const pteroAllocationId =
         pteroResult.relationships?.allocations?.data?.[0]?.id || null;
+
+      console.log(
+        "Pterodactyl server created:",
+        pteroServerId,
+        "for user:",
+        req.session.userId,
+      );
 
       // Получаем статус сервера из Pterodactyl
       let status = "installing";
@@ -566,6 +681,13 @@ router.post("/orders", async (req, res) => {
           createdAt: now,
         })
         .returning();
+
+      console.log(
+        "Server record created in DB:",
+        serverRecord[0].id,
+        "for user:",
+        serverRecord[0].userId,
+      );
     } catch (pteroError) {
       console.error("Pterodactyl error:", pteroError);
       serverRecord = await db
