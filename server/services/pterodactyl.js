@@ -1,10 +1,13 @@
-import axios from 'axios';
-import { db } from '../db.js';
-import { settings } from '../schema.js';
-import { eq } from 'drizzle-orm';
+import axios from "axios";
+import { db } from "../db.js";
+import { settings } from "../schema.js";
+import { eq } from "drizzle-orm";
 
 async function getConfig() {
-  const rows = await db.select().from(settings).where(eq(settings.group, 'pterodactyl'));
+  const rows = await db
+    .select()
+    .from(settings)
+    .where(eq(settings.group, "pterodactyl"));
   const config = {};
   for (const row of rows) {
     config[row.key] = row.value;
@@ -13,14 +16,14 @@ async function getConfig() {
 }
 
 function getClient(config) {
-  const url = config['ptero_url'] || '';
-  const key = config['ptero_api_key'] || '';
+  const url = config["ptero_url"] || "";
+  const key = config["ptero_api_key"] || "";
   return axios.create({
-    baseURL: url.replace(/\/+$/, '') + '/api/application',
+    baseURL: url.replace(/\/+$/, "") + "/api/application",
     headers: {
-      'Authorization': `Bearer ${key}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
     },
     timeout: 30000,
   });
@@ -30,7 +33,7 @@ function getClient(config) {
 export async function getNodes() {
   const config = await getConfig();
   const client = getClient(config);
-  const response = await client.get('/nodes?per_page=100');
+  const response = await client.get("/nodes?per_page=100");
   return response.data.data || [];
 }
 
@@ -38,7 +41,7 @@ export async function getNodes() {
 export async function getLocations() {
   const config = await getConfig();
   const client = getClient(config);
-  const response = await client.get('/locations?per_page=100');
+  const response = await client.get("/locations?per_page=100");
   return response.data.data || [];
 }
 
@@ -46,19 +49,21 @@ export async function getLocations() {
 export async function getNestsWithEggs() {
   const config = await getConfig();
   const client = getClient(config);
-  const nestsResponse = await client.get('/nests?per_page=100');
+  const nestsResponse = await client.get("/nests?per_page=100");
   const nests = nestsResponse.data.data || [];
 
   const result = [];
   for (const nest of nests) {
     try {
-      const eggsResponse = await client.get(`/nests/${nest.attributes.id}/eggs?per_page=100`);
+      const eggsResponse = await client.get(
+        `/nests/${nest.attributes.id}/eggs?per_page=100`,
+      );
       const eggs = eggsResponse.data.data || [];
       result.push({
         id: nest.attributes.id,
         name: nest.attributes.name,
         description: nest.attributes.description,
-        eggs: eggs.map(egg => ({
+        eggs: eggs.map((egg) => ({
           id: egg.attributes.id,
           name: egg.attributes.name,
           description: egg.attributes.description,
@@ -68,7 +73,10 @@ export async function getNestsWithEggs() {
         })),
       });
     } catch (e) {
-      console.error(`Failed to fetch eggs for nest ${nest.attributes.id}:`, e.message);
+      console.error(
+        `Failed to fetch eggs for nest ${nest.attributes.id}:`,
+        e.message,
+      );
       result.push({
         id: nest.attributes.id,
         name: nest.attributes.name,
@@ -87,7 +95,7 @@ export async function getEggsInNest(nestId) {
   try {
     const response = await client.get(`/nests/${nestId}/eggs?per_page=100`);
     const eggs = response.data.data || [];
-    return eggs.map(egg => ({
+    return eggs.map((egg) => ({
       id: egg.attributes.id,
       name: egg.attributes.name,
       description: egg.attributes.description,
@@ -95,7 +103,7 @@ export async function getEggsInNest(nestId) {
       startup: egg.attributes.startup,
     }));
   } catch (error) {
-    console.error('Error getting eggs in nest:', error.message);
+    console.error("Error getting eggs in nest:", error.message);
     return [];
   }
 }
@@ -104,7 +112,9 @@ export async function getEggsInNest(nestId) {
 export async function getNodeAllocations(nodeId) {
   const config = await getConfig();
   const client = getClient(config);
-  const response = await client.get(`/nodes/${nodeId}/allocations?per_page=100`);
+  const response = await client.get(
+    `/nodes/${nodeId}/allocations?per_page=100`,
+  );
   return response.data.data || [];
 }
 
@@ -113,10 +123,12 @@ export async function getEgg(nestId, eggId) {
   const config = await getConfig();
   const client = getClient(config);
   try {
-    const response = await client.get(`/nests/${nestId}/eggs/${eggId}?include=variables`);
+    const response = await client.get(
+      `/nests/${nestId}/eggs/${eggId}?include=variables`,
+    );
     return response.data;
   } catch (error) {
-    console.error('Error getting egg:', error.message);
+    console.error("Error getting egg:", error.message);
     return null;
   }
 }
@@ -138,35 +150,35 @@ export async function getEggVariables(nestId, eggId) {
     for (const variable of eggVariables) {
       // Используем значение по умолчанию
       const envVar = variable.env_variable || variable.environment_variable;
-      const defaultValue = variable.default_value || variable.default || '';
+      const defaultValue = variable.default_value || variable.default || "";
       if (envVar) {
         variables[envVar] = defaultValue;
       }
     }
 
-    console.log('Raw egg variables:', JSON.stringify(eggVariables));
+    console.log("Raw egg variables:", JSON.stringify(eggVariables));
 
     // Если переменных нет, возвращаем дефолтные для популярных яиц
     if (Object.keys(variables).length === 0) {
       // Дефолтные значения для Paper/Spigot/BungeeCord/Velocity
       return {
-        SERVER_JARFILE: 'server.jar',
-        BUILD_NUMBER: 'latest',
-        MINECRAFT_VERSION: 'latest',
-        FORGE_VERSION: 'latest',
-        FABRIC_VERSION: 'latest',
-        BUNGEE_VERSION: 'latest',
-        VELOCITY_VERSION: 'latest',
+        SERVER_JARFILE: "server.jar",
+        BUILD_NUMBER: "latest",
+        MINECRAFT_VERSION: "latest",
+        FORGE_VERSION: "latest",
+        FABRIC_VERSION: "latest",
+        BUNGEE_VERSION: "latest",
+        VELOCITY_VERSION: "latest",
       };
     }
 
     return variables;
   } catch (error) {
-    console.error('Error getting egg variables:', error.message);
+    console.error("Error getting egg variables:", error.message);
     // Возвращаем дефолтные значения для Paper/Spigot
     return {
-      SERVER_JARFILE: 'server.jar',
-      BUILD_NUMBER: 'latest',
+      SERVER_JARFILE: "server.jar",
+      BUILD_NUMBER: "latest",
     };
   }
 }
@@ -176,13 +188,68 @@ export async function getFreeAllocation(nodeId) {
   try {
     const allocations = await getNodeAllocations(nodeId);
     // Фильтруем свободные аллокации (assigned: false)
-    const free = allocations.filter(a => a.attributes?.assigned === false);
+    const free = allocations.filter((a) => a.attributes?.assigned === false);
     if (free.length === 0) return null;
     // Выбираем случайную свободную аллокацию
     const random = free[Math.floor(Math.random() * free.length)];
     return random.attributes.id;
   } catch (error) {
-    console.error('Error getting free allocation:', error.message);
+    console.error("Error getting free allocation:", error.message);
+    return null;
+  }
+}
+
+// Получить наименее загруженную ноду
+export async function getLeastLoadedNode() {
+  const config = await getConfig();
+  const client = getClient(config);
+
+  try {
+    // Получаем все ноды
+    const nodesResponse = await client.get("/nodes?per_page=100");
+    const nodes = nodesResponse.data.data || [];
+
+    // Для каждой ноды получаем количество серверов
+    const nodesWithLoad = await Promise.all(
+      nodes.map(async (node) => {
+        try {
+          const nodeId = node.attributes.id;
+          // Получаем серверы на этой ноде
+          const serversResponse = await client.get(
+            `/nodes/${nodeId}/servers?per_page=1`,
+          );
+          const totalServers =
+            serversResponse.data.meta?.pagination?.total || 0;
+
+          return {
+            id: nodeId,
+            name: node.attributes.name,
+            load: totalServers,
+          };
+        } catch (e) {
+          return {
+            id: node.attributes.id,
+            name: node.attributes.name,
+            load: 999999,
+          };
+        }
+      }),
+    );
+
+    // Сортируем по загрузке и возвращаем наименее загруженную
+    nodesWithLoad.sort((a, b) => a.load - b.load);
+
+    if (nodesWithLoad.length > 0) {
+      const leastLoaded = nodesWithLoad[0];
+      console.log(
+        `Selected least loaded node: ${leastLoaded.name} (load: ${leastLoaded.load})`,
+      );
+      return leastLoaded.id;
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error getting least loaded node:", error.message);
     return null;
   }
 }
@@ -191,38 +258,55 @@ export async function createServer({ name, userId, plan, pteroUserId }) {
   const config = await getConfig();
   const client = getClient(config);
 
-  console.log('Plan data:', JSON.stringify({
-    id: plan.id,
-    name: plan.name,
-    eggId: plan.eggId,
-    nestId: plan.nestId,
-    nodeIds: plan.nodeIds,
-    nodeId: plan.nodeId,
-    allocationId: plan.allocationId,
-    dockerImage: plan.dockerImage,
-    startup: plan.startup,
-  }));
+  console.log(
+    "Plan data:",
+    JSON.stringify({
+      id: plan.id,
+      name: plan.name,
+      eggId: plan.eggId,
+      nestId: plan.nestId,
+      nodeIds: plan.nodeIds,
+      nodeId: plan.nodeId,
+      allocationId: plan.allocationId,
+      dockerImage: plan.dockerImage,
+      startup: plan.startup,
+    }),
+  );
 
   // Если аллокация не указана, пробуем найти свободную
   let allocationId = plan.allocationId;
 
-  // Выбираем случайную ноду из списка если есть nodeIds
-  let selectedNodeId = plan.nodeId;
+  // Выбираем ноду: сначала из nodeIds (рандом), потом из плана, потом наименее загруженную
+  let selectedNodeId = null;
+
   if (plan.nodeIds) {
     try {
       const nodeIdsArray = JSON.parse(plan.nodeIds);
       if (Array.isArray(nodeIdsArray) && nodeIdsArray.length > 0) {
-        selectedNodeId = nodeIdsArray[Math.floor(Math.random() * nodeIdsArray.length)];
-        console.log('Selected random node:', selectedNodeId);
+        selectedNodeId =
+          nodeIdsArray[Math.floor(Math.random() * nodeIdsArray.length)];
+        console.log("Selected random node from nodeIds:", selectedNodeId);
       }
     } catch (e) {
-      console.error('Failed to parse nodeIds:', e);
+      console.error("Failed to parse nodeIds:", e);
+    }
+  }
+
+  if (!selectedNodeId && plan.nodeId) {
+    selectedNodeId = plan.nodeId;
+    console.log("Using nodeId from plan:", selectedNodeId);
+  }
+
+  if (!selectedNodeId) {
+    selectedNodeId = await getLeastLoadedNode();
+    if (selectedNodeId) {
+      console.log("Auto-selected least loaded node:", selectedNodeId);
     }
   }
 
   if (!allocationId && selectedNodeId) {
     allocationId = await getFreeAllocation(parseInt(selectedNodeId));
-    console.log('Auto-selected allocation ID:', allocationId);
+    console.log("Auto-selected allocation ID:", allocationId);
   }
 
   // Получаем startup и docker_image напрямую из яйца Pterodactyl
@@ -230,73 +314,106 @@ export async function createServer({ name, userId, plan, pteroUserId }) {
   let eggDockerImage = plan.dockerImage;
   let environment = {};
 
+  // Всегда пытаемся получить данные из яйца Pterodactyl если есть nestId и eggId
   if (plan.nestId && plan.eggId) {
     try {
       const eggClient = getClient(config);
-      const eggResponse = await eggClient.get(`/nests/${plan.nestId}/eggs/${plan.eggId}`);
+      const eggResponse = await eggClient.get(
+        `/nests/${plan.nestId}/eggs/${plan.eggId}`,
+      );
       const eggData = eggResponse.data;
 
       // Получаем startup из яйца
       if (eggData.attributes?.startup) {
         eggStartup = eggData.attributes.startup;
-        console.log('Egg startup from Pterodactyl:', eggStartup);
+        console.log("Egg startup from Pterodactyl:", eggStartup);
       }
 
       // Получаем docker_image из яйца
       if (eggData.attributes?.docker_image) {
         eggDockerImage = eggData.attributes.docker_image;
-        console.log('Egg docker_image from Pterodactyl:', eggDockerImage);
+        console.log("Egg docker_image from Pterodactyl:", eggDockerImage);
       }
 
       // Получаем переменные окружения из яйца
       const eggVariables = eggData.attributes?.variables || [];
-      console.log('Raw egg variables:', JSON.stringify(eggVariables));
+      console.log("Raw egg variables:", JSON.stringify(eggVariables));
 
       for (const variable of eggVariables) {
         const envVar = variable.env_variable || variable.environment_variable;
-        const defaultValue = variable.default_value || variable.default || '';
+        const defaultValue = variable.default_value || variable.default || "";
         const required = variable.required || false;
 
         if (envVar) {
-          environment[envVar] = defaultValue || 'default';
+          environment[envVar] = defaultValue || "default";
         }
       }
 
       // Если переменных нет, добавляем универсальные для всех типов серверов
       if (Object.keys(environment).length === 0) {
-        const isBungeecord = eggStartup?.includes('bungee') || eggDockerImage?.includes('bungee');
-        const isVelocity = eggStartup?.includes('velocity') || eggDockerImage?.includes('velocity');
-        const isForge = eggStartup?.includes('forge') || eggDockerImage?.includes('forge');
+        const isBungeecord =
+          eggStartup?.includes("bungee") || eggDockerImage?.includes("bungee");
+        const isVelocity =
+          eggStartup?.includes("velocity") ||
+          eggDockerImage?.includes("velocity");
+        const isForge =
+          eggStartup?.includes("forge") || eggDockerImage?.includes("forge");
 
         if (isBungeecord) {
-          environment = { BUNGEE_VERSION: 'latest', BUNGEE_JARFILE: 'bungeecord.jar' };
+          environment = {
+            BUNGEE_VERSION: "latest",
+            BUNGEE_JARFILE: "bungeecord.jar",
+          };
         } else if (isVelocity) {
-          environment = { VELOCITY_VERSION: 'latest', VELOCITY_JARFILE: 'velocity.jar' };
+          environment = {
+            VELOCITY_VERSION: "latest",
+            VELOCITY_JARFILE: "velocity.jar",
+          };
         } else if (isForge) {
-          environment = { FORGE_VERSION: 'latest', MINECRAFT_VERSION: 'latest', SERVER_JARFILE: 'server.jar' };
+          environment = {
+            FORGE_VERSION: "latest",
+            MINECRAFT_VERSION: "latest",
+            SERVER_JARFILE: "server.jar",
+          };
         } else {
-          environment = { SERVER_JARFILE: 'server.jar', BUILD_NUMBER: 'latest', MINECRAFT_VERSION: 'latest' };
+          environment = {
+            SERVER_JARFILE: "server.jar",
+            BUILD_NUMBER: "latest",
+            MINECRAFT_VERSION: "latest",
+          };
         }
       }
 
-      console.log('Egg environment variables:', JSON.stringify(environment));
+      console.log("Egg environment variables:", JSON.stringify(environment));
     } catch (error) {
-      console.error('Error getting egg details:', error.message);
+      console.error("Error getting egg details:", error.message);
       environment = {
-        SERVER_JARFILE: 'server.jar',
-        BUILD_NUMBER: 'latest',
-        BUNGEE_VERSION: 'latest',
-        BUNGEE_JARFILE: 'bungeecord.jar',
-        VELOCITY_VERSION: 'latest',
-        VELOCITY_JARFILE: 'velocity.jar',
-        MINECRAFT_VERSION: 'latest',
-        FORGE_VERSION: 'latest',
-        FABRIC_VERSION: 'latest',
-        SPONGE_VERSION: 'latest',
-        PAPER_VERSION: 'latest',
-        SPIGOT_VERSION: 'latest',
+        SERVER_JARFILE: "server.jar",
+        BUILD_NUMBER: "latest",
+        BUNGEE_VERSION: "latest",
+        BUNGEE_JARFILE: "bungeecord.jar",
+        VELOCITY_VERSION: "latest",
+        VELOCITY_JARFILE: "velocity.jar",
+        MINECRAFT_VERSION: "latest",
+        FORGE_VERSION: "latest",
+        FABRIC_VERSION: "latest",
+        SPONGE_VERSION: "latest",
+        PAPER_VERSION: "latest",
+        SPIGOT_VERSION: "latest",
       };
     }
+  }
+
+  // Если после всех попыток docker_image или startup всё ещё null/undefined,
+  // используем значения по умолчанию для популярных серверов
+  if (!eggDockerImage || eggDockerImage === null || eggDockerImage === "") {
+    eggDockerImage = "ghcr.io/parkervcp/yolks:java_21";
+    console.log("Using default docker_image:", eggDockerImage);
+  }
+
+  if (!eggStartup || eggStartup === null || eggStartup === "") {
+    eggStartup = "java -Xms128M -Xmx${SERVER_MEMORY}M -jar ${SERVER_JARFILE}";
+    console.log("Using default startup:", eggStartup);
   }
 
   const payload = {
@@ -322,7 +439,7 @@ export async function createServer({ name, userId, plan, pteroUserId }) {
 
   if (plan.nestId) payload.nest = plan.nestId;
 
-  // Если есть аллокация - используем её, иначе пробуем deploy с рандомной нодой
+  // Если есть аллокация - используем её, иначе пробуем deploy с выбранной нодой
   if (allocationId) {
     payload.allocation = {
       default: parseInt(allocationId),
@@ -331,16 +448,19 @@ export async function createServer({ name, userId, plan, pteroUserId }) {
     payload.deploy = {
       locations: [parseInt(selectedNodeId)],
       dedicated_ip: false,
-      port_range: ['60000-60100'],
+      port_range: ["60000-60100"],
     };
   }
 
   try {
-    const response = await client.post('/servers', payload);
+    const response = await client.post("/servers", payload);
     return response.data;
   } catch (error) {
     if (error.response?.data) {
-      console.error('Pterodactyl API error details:', JSON.stringify(error.response.data, null, 2));
+      console.error(
+        "Pterodactyl API error details:",
+        JSON.stringify(error.response.data, null, 2),
+      );
     }
     throw error;
   }
@@ -382,52 +502,57 @@ export async function getServerStatus(pteroServerId) {
     // Но у нас только Application API key, поэтому пробуем другой подход
 
     // Получаем детали сервера через Application API с relationships
-    const response = await client.get(`/servers/${pteroServerId}?include=resources`);
+    const response = await client.get(
+      `/servers/${pteroServerId}?include=resources`,
+    );
     const attributes = response.data.attributes || {};
 
-    console.log(`Server ${pteroServerId} status data:`, JSON.stringify({
-      isInstalling: attributes.isInstalling,
-      isReinstalling: attributes.isReinstalling,
-      status: attributes.status,
-      state: attributes.state,
-      resources: attributes.resources,
-    }));
+    console.log(
+      `Server ${pteroServerId} status data:`,
+      JSON.stringify({
+        isInstalling: attributes.isInstalling,
+        isReinstalling: attributes.isReinstalling,
+        status: attributes.status,
+        state: attributes.state,
+        resources: attributes.resources,
+      }),
+    );
 
     // Приоритет 1: Статус установки/переустановки
     if (attributes.isInstalling === true) {
-      return 'installing';
+      return "installing";
     }
 
     if (attributes.isReinstalling === true) {
-      return 'reinstalling';
+      return "reinstalling";
     }
 
     // Приоритет 2: Проверяем state
     const state = attributes.state;
     if (state) {
-      if (state === 'installing') return 'installing';
-      if (state === 'reinstalling') return 'reinstalling';
-      if (state === 'running') return 'running';
-      if (state === 'offline') return 'offline';
-      if (state === 'starting') return 'starting';
-      if (state === 'stopping') return 'stopping';
-      if (state === 'restarting') return 'restarting';
+      if (state === "installing") return "installing";
+      if (state === "reinstalling") return "reinstalling";
+      if (state === "running") return "running";
+      if (state === "offline") return "offline";
+      if (state === "starting") return "starting";
+      if (state === "stopping") return "stopping";
+      if (state === "restarting") return "restarting";
     }
 
     // Приоритет 3: Дополнительный статус
     const status = attributes.status;
     if (status) {
-      if (status === 'installing') return 'installing';
-      if (status === 'reinstalling') return 'reinstalling';
-      if (status === 'running') return 'running';
-      if (status === 'offline') return 'offline';
+      if (status === "installing") return "installing";
+      if (status === "reinstalling") return "reinstalling";
+      if (status === "running") return "running";
+      if (status === "offline") return "offline";
     }
 
     // По умолчанию считаем что сервер работает
-    return 'running';
+    return "running";
   } catch (error) {
-    console.error('Error getting server status:', error.message);
-    return 'offline';
+    console.error("Error getting server status:", error.message);
+    return "offline";
   }
 }
 
@@ -446,16 +571,34 @@ export async function updateServerBuild(pteroServerId, { cpu, memory, disk }) {
     },
   };
 
-  const response = await client.patch(`/servers/${pteroServerId}/build`, payload);
+  const response = await client.patch(
+    `/servers/${pteroServerId}/build`,
+    payload,
+  );
   return response.data;
 }
 
 // Переустановить сервер с новым яйцом - удаляет старый и создаёт новый
-export async function reinstallServerWithEgg(pteroServerId, { egg, dockerImage, startup, serverName, userId, nodeId, allocationId, limits, featureLimits }) {
+export async function reinstallServerWithEgg(
+  pteroServerId,
+  {
+    egg,
+    dockerImage,
+    startup,
+    serverName,
+    userId,
+    nodeId,
+    allocationId,
+    limits,
+    featureLimits,
+  },
+) {
   const config = await getConfig();
   const client = getClient(config);
 
-  console.log(`Reinstalling server ${pteroServerId} with egg ${egg}, docker: ${dockerImage}, allocation: ${allocationId}`);
+  console.log(
+    `Reinstalling server ${pteroServerId} with egg ${egg}, docker: ${dockerImage}, allocation: ${allocationId}`,
+  );
 
   // Получаем текущие детали сервера перед удалением
   let currentNestId = null;
@@ -465,7 +608,7 @@ export async function reinstallServerWithEgg(pteroServerId, { egg, dockerImage, 
 
     console.log(`Server ${pteroServerId} current nest: ${currentNestId}`);
   } catch (error) {
-    console.error('Failed to get server details:', error.message);
+    console.error("Failed to get server details:", error.message);
   }
 
   // Получаем информацию о новом яйце для правильного startup
@@ -473,7 +616,9 @@ export async function reinstallServerWithEgg(pteroServerId, { egg, dockerImage, 
   let eggDockerImage = dockerImage;
   if (currentNestId) {
     try {
-      const eggResponse = await client.get(`/nests/${currentNestId}/eggs/${egg}`);
+      const eggResponse = await client.get(
+        `/nests/${currentNestId}/eggs/${egg}`,
+      );
       const eggData = eggResponse.data;
       if (eggData.attributes?.startup) {
         eggStartup = eggData.attributes.startup;
@@ -484,7 +629,7 @@ export async function reinstallServerWithEgg(pteroServerId, { egg, dockerImage, 
         console.log(`Egg ${egg} docker image: ${eggDockerImage}`);
       }
     } catch (error) {
-      console.error('Failed to get egg details:', error.message);
+      console.error("Failed to get egg details:", error.message);
     }
   }
 
@@ -493,7 +638,10 @@ export async function reinstallServerWithEgg(pteroServerId, { egg, dockerImage, 
     await client.delete(`/servers/${pteroServerId}`);
     console.log(`Server ${pteroServerId} deleted`);
   } catch (error) {
-    console.error('Failed to delete server:', error.response?.data || error.message);
+    console.error(
+      "Failed to delete server:",
+      error.response?.data || error.message,
+    );
   }
 
   // Создаём новый сервер с тем же именем но новым яйцом
@@ -535,12 +683,15 @@ export async function reinstallServerWithEgg(pteroServerId, { egg, dockerImage, 
       console.log(`Using deploy mode with node ID: ${nodeId}`);
     }
 
-    const response = await client.post('/servers', newServerPayload);
+    const response = await client.post("/servers", newServerPayload);
     const newServerId = response.data.attributes?.id;
     const newIdentifier = response.data.attributes?.identifier;
-    const newAllocationId = response.data.relationships?.allocations?.data?.[0]?.id;
+    const newAllocationId =
+      response.data.relationships?.allocations?.data?.[0]?.id;
 
-    console.log(`New server created: id=${newServerId}, allocation=${newAllocationId}`);
+    console.log(
+      `New server created: id=${newServerId}, allocation=${newAllocationId}`,
+    );
     return {
       success: true,
       pteroServerId: newServerId,
@@ -548,7 +699,10 @@ export async function reinstallServerWithEgg(pteroServerId, { egg, dockerImage, 
       allocationId: newAllocationId,
     };
   } catch (error) {
-    console.error('Failed to create new server:', error.response?.data || error.message);
+    console.error(
+      "Failed to create new server:",
+      error.response?.data || error.message,
+    );
     throw error;
   }
 }
@@ -556,21 +710,21 @@ export async function reinstallServerWithEgg(pteroServerId, { egg, dockerImage, 
 export async function listNodes() {
   const config = await getConfig();
   const client = getClient(config);
-  const response = await client.get('/nodes');
+  const response = await client.get("/nodes");
   return response.data;
 }
 
 export async function listLocations() {
   const config = await getConfig();
   const client = getClient(config);
-  const response = await client.get('/locations');
+  const response = await client.get("/locations");
   return response.data;
 }
 
 export async function listNests() {
   const config = await getConfig();
   const client = getClient(config);
-  const response = await client.get('/nests');
+  const response = await client.get("/nests");
   return response.data;
 }
 
@@ -581,17 +735,39 @@ export async function listEggs(nestId) {
   return response.data;
 }
 
-export async function createPteroUser({ email, username, firstName, lastName, password }) {
+export async function createPteroUser({
+  email,
+  username,
+  firstName,
+  lastName,
+  password,
+}) {
   const config = await getConfig();
   const client = getClient(config);
-  const response = await client.post('/users', {
-    email,
-    username,
-    first_name: firstName || username,
-    last_name: lastName || 'User',
-    password, // Передаём пароль в Pterodactyl
-  });
-  return response.data;
+
+  // Проверяем что URL корректный
+  const baseURL = client.defaults.baseURL;
+  if (!baseURL || !baseURL.startsWith("http")) {
+    console.error("Invalid Pterodactyl URL:", baseURL);
+    throw new Error("Pterodactyl URL не настроен");
+  }
+
+  try {
+    const response = await client.post("/users", {
+      email,
+      username,
+      first_name: firstName || username,
+      last_name: lastName || "User",
+      password,
+    });
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Pterodactyl create user error:",
+      error.response?.data || error.message,
+    );
+    throw error;
+  }
 }
 
 // Удалить пользователя
@@ -618,7 +794,7 @@ export async function unsuspendUser(pteroUserId) {
 export async function getPteroUsers() {
   const config = await getConfig();
   const client = getClient(config);
-  const response = await client.get('/users');
+  const response = await client.get("/users");
   return response.data;
 }
 
@@ -626,8 +802,8 @@ export async function testConnection() {
   try {
     const config = await getConfig();
     const client = getClient(config);
-    const response = await client.get('/servers?per_page=1');
-    return { success: true, message: 'Подключение успешно' };
+    const response = await client.get("/servers?per_page=1");
+    return { success: true, message: "Подключение успешно" };
   } catch (error) {
     return { success: false, message: error.message };
   }

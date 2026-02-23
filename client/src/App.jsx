@@ -19,6 +19,7 @@ import OrderPage from "./pages/user/OrderPage.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import AdminUsers from "./pages/admin/AdminUsers.jsx";
 import AdminPlans from "./pages/admin/AdminPlans.jsx";
+import AdminNodes from "./pages/admin/AdminNodes.jsx";
 import AdminOrders from "./pages/admin/AdminOrders.jsx";
 import AdminServers from "./pages/admin/AdminServers.jsx";
 import AdminPayments from "./pages/admin/AdminPayments.jsx";
@@ -83,7 +84,7 @@ export default function App() {
             <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <RegisterPage />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/servers" element={<ProtectedRoute><ServersPage /></ProtectedRoute>} />
-            <Route path="/plans" element={<ProtectedRoute><PlansPageNew /></ProtectedRoute>} />
+            <Route path="/plans" element={<ProtectedRoute><PlansPage /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
             <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
             <Route path="/tickets" element={<ProtectedRoute><TicketsPage /></ProtectedRoute>} />
@@ -93,7 +94,8 @@ export default function App() {
             <Route path="/plans/order" element={<ProtectedRoute><OrderPage /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>} />
-            <Route path="/admin/plans" element={<ProtectedRoute adminOnly><AdminPlansNew /></ProtectedRoute>} />
+            <Route path="/admin/plans" element={<ProtectedRoute adminOnly><AdminPlans /></ProtectedRoute>} />
+            <Route path="/admin/nodes" element={<ProtectedRoute adminOnly><AdminNodes /></ProtectedRoute>} />
             <Route path="/admin/orders" element={<ProtectedRoute adminOnly><AdminOrders /></ProtectedRoute>} />
             <Route path="/admin/servers" element={<ProtectedRoute adminOnly><AdminServers /></ProtectedRoute>} />
             <Route path="/admin/payments" element={<ProtectedRoute adminOnly><AdminPayments /></ProtectedRoute>} />

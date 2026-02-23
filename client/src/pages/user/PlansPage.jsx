@@ -18,6 +18,7 @@ export default function PlansPage() {
   }, []);
 
   const handlePlanClick = (plan) => {
+    console.log('Plan selected:', plan);
     navigate(`/plans/order?planId=${plan.id}`);
   };
 
