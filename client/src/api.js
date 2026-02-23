@@ -20,6 +20,10 @@ export const api = {
   me: () => request("/api/auth/me"),
 
   getPlans: () => request("/api/user/plans"),
+  getGames: () => request("/api/user/games"),
+  getKernels: (gameId) => request(`/api/user/kernels/${gameId}`),
+  getPlansForKernel: (kernelId) =>
+    request(`/api/user/plans-for-kernel/${kernelId}`),
   getPterodactylNests: () => request("/api/user/pterodactyl/nests"),
   getPterodactylEggs: (nestId) =>
     request(`/api/user/pterodactyl/nests/${nestId}/eggs`),

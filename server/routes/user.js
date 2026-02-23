@@ -10,8 +10,10 @@ import {
   tickets,
   ticketMessages,
   ticketCategories,
+  games,
+  kernels,
 } from "../schema.js";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth.js";
 import * as ptero from "../services/pterodactyl.js";
 import {
@@ -22,6 +24,76 @@ import {
 
 const router = Router();
 router.use(requireAuth);
+
+// Получить все активные игры
+router.get("/games", async (req, res) => {
+  try {
+    const result = await db
+      .select()
+      .from(games)
+      .where(eq(games.isActive, 1))
+      .orderBy(games.sortOrder);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Получить все активные ядра для игры
+router.get("/kernels/:gameId", async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.gameId);
+    const result = await db
+      .select()
+      .from(kernels)
+      .where(and(eq(kernels.gameId, gameId), eq(kernels.isActive, 1)))
+      .orderBy(kernels.sortOrder);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Получить тарифы для конкретного ядра
+router.get("/plans-for-kernel/:kernelId", async (req, res) => {
+  try {
+    const kernelId = parseInt(req.params.kernelId);
+
+    // Получаем ядро
+    const [kernel] = await db
+      .select()
+      .from(kernels)
+      .where(eq(kernels.id, kernelId));
+
+    if (!kernel) {
+      return res.status(404).json({ error: "Ядро не найдено" });
+    }
+
+    // Получаем все активные тарифы
+    const allPlans = await db
+      .select()
+      .from(plans)
+      .where(eq(plans.isActive, 1))
+      .orderBy(plans.sortOrder);
+
+    // Для каждого тарифа создаём копию с данными ядра
+    const plansWithKernel = allPlans.map((plan) => ({
+      ...plan,
+      kernelId,
+      kernelName: kernel.name,
+      // Если у тарифа нет eggId, используем данные из ядра
+      eggId: plan.eggId || kernel.pteroEggId,
+      nestId: plan.nestId || kernel.pteroNestId,
+      dockerImage: plan.dockerImage || kernel.dockerImage,
+      startup: plan.startup || kernel.startup,
+      environment: plan.environment || kernel.environment,
+    }));
+
+    res.json(plansWithKernel);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 router.get("/plans", async (req, res) => {
   try {
@@ -558,17 +630,56 @@ router.get("/orders", async (req, res) => {
 
 router.post("/orders", async (req, res) => {
   try {
-    const { planId, billingPeriod, serverName, eggId } = req.body;
+    const { planId, billingPeriod, serverName, eggId, kernelId } = req.body;
+
     let [plan] = await db
       .select()
       .from(plans)
       .where(eq(plans.id, parseInt(planId)));
+
     if (!plan) return res.status(404).json({ error: "Тариф не найден" });
 
-    // Если указано яйцо, используем его для создания сервера
+    // Если указан kernelId, получаем данные ядра и используем их
     let planToUse = plan;
+    let kernelData = null;
+
+    if (kernelId) {
+      const [kernel] = await db
+        .select()
+        .from(kernels)
+        .where(eq(kernels.id, parseInt(kernelId)));
+
+      if (kernel) {
+        kernelData = kernel;
+        console.log("Using kernel data:", kernel.name);
+
+        // Используем данные ядра если они не указаны в тарифе
+        planToUse = {
+          ...plan,
+          eggId: plan.eggId || kernel.pteroEggId,
+          nestId: plan.nestId || kernel.pteroNestId,
+          dockerImage: plan.dockerImage || kernel.dockerImage,
+          startup: plan.startup || kernel.startup,
+          environment: plan.environment || kernel.environment,
+        };
+      }
+    }
+
+    // Если указано яйцо (для смены ядра), используем его
     if (eggId && eggId !== plan.eggId) {
-      planToUse = { ...plan, eggId };
+      planToUse = { ...planToUse, eggId };
+    }
+
+    // Проверяем что все необходимые данные есть
+    if (!planToUse.eggId) {
+      return res.status(400).json({
+        error: "Не указано яйцо (eggId). Выберите ядро или настройте тариф.",
+      });
+    }
+    if (!planToUse.nestId) {
+      return res.status(400).json({
+        error: "Не указано гнездо (nestId). Выберите ядро или настройте тариф.",
+      });
     }
 
     let amount = plan.priceMonthly;
@@ -630,6 +741,7 @@ router.post("/orders", async (req, res) => {
       "username:",
       req.session.username,
     );
+    console.log("Plan to use:", JSON.stringify(planToUse));
 
     // Проверяем есть ли у пользователя pteroUserId, если нет - создаём
     let pteroUserId = user.pteroUserId;

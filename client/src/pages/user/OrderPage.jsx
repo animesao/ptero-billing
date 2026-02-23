@@ -8,9 +8,10 @@ export default function OrderPage() {
   const navigate = useNavigate();
 
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [nests, setNests] = useState([]);
-  const [selectedNest, setSelectedNest] = useState(null);
-  const [selectedEgg, setSelectedEgg] = useState(null);
+  const [games, setGames] = useState([]);
+  const [kernels, setKernels] = useState([]);
+  const [selectedGame, setSelectedGame] = useState(null);
+  const [selectedKernel, setSelectedKernel] = useState(null);
 
   const [serverName, setServerName] = useState("");
   const [billingPeriod, setBillingPeriod] = useState("monthly");
@@ -26,56 +27,58 @@ export default function OrderPage() {
     }
 
     setLoading(true);
-    Promise.all([api.getPlans(), api.getPterodactylNests().catch(() => [])])
-      .then(([plansData, nestsData]) => {
+    Promise.all([api.getPlans(), api.getGames().catch(() => [])])
+      .then(([plansData, gamesData]) => {
         const plan = plansData.find((p) => p.id === parseInt(planId));
         if (!plan) {
           navigate("/plans");
           return;
         }
         setSelectedPlan(plan);
-        setNests(nestsData);
+        setGames(gamesData);
 
-        // Автовыбор гнезда и яйца если есть данные
-        if (nestsData && nestsData.length > 0) {
-          const firstNest = nestsData[0];
-          setSelectedNest(firstNest);
-
-          // Выбираем первое яйцо из первого гнезда если есть
-          if (firstNest.eggs && firstNest.eggs.length > 0) {
-            const firstEgg = firstNest.eggs[0];
-            setSelectedEgg(firstEgg);
-            setStep(4); // Переходим сразу к оформлению
-          } else {
-            setStep(3); // Нужно выбрать яйцо
-          }
+        // Если есть игры, показываем выбор
+        if (gamesData && gamesData.length > 0) {
+          setStep(2); // Выбор игры
         } else {
-          setStep(2); // Нужно выбрать игру
+          // Если игр нет, сразу к оформлению
+          setStep(4);
         }
       })
       .catch((err) => {
         console.error("Failed to load order data:", err);
         setError("Не удалось загрузить данные. Попробуйте позже.");
-        setStep(2); // Показываем шаг выбора игры даже при ошибке
+        setStep(4);
       })
       .finally(() => {
         setLoading(false);
       });
   }, [searchParams, navigate]);
 
-  const handleNestSelect = (nest) => {
-    setSelectedNest(nest);
-    setSelectedEgg(null); // Сбрасываем яйцо при смене игры
-    setStep(3);
+  const handleGameSelect = (game) => {
+    setSelectedGame(game);
+    setLoading(true);
+    api
+      .getKernels(game.id)
+      .then((kernelsData) => {
+        setKernels(kernelsData);
+        setStep(3); // Выбор ядра
+      })
+      .catch((err) => {
+        console.error("Failed to load kernels:", err);
+        setError("Не удалось загрузить ядра. Попробуйте позже.");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
-  const handleEggSelect = (egg) => {
-    setSelectedEgg(egg);
-    setStep(4);
+  const handleKernelSelect = (kernel) => {
+    setSelectedKernel(kernel);
+    setStep(4); // Переход к оформлению
   };
 
   const goToStep = (stepNum) => {
-    // Можно вернуться на предыдущие шаги для редактирования
     if (stepNum <= step) {
       setStep(stepNum);
     }
@@ -87,7 +90,7 @@ export default function OrderPage() {
       setError("Введите название сервера");
       return;
     }
-    if (!selectedEgg) {
+    if (!selectedKernel) {
       setError("Выберите ядро");
       return;
     }
@@ -99,11 +102,11 @@ export default function OrderPage() {
         planId: selectedPlan.id,
         billingPeriod,
         serverName,
-        eggId: selectedEgg.id,
+        kernelId: selectedKernel.id,
       });
       navigate("/servers");
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Ошибка при создании заказа");
     } finally {
       setLoading(false);
     }
@@ -137,384 +140,321 @@ export default function OrderPage() {
       {/* Прогресс бар */}
       <div className="glass-card p-4 animate-slide-up">
         <div className="flex items-center justify-between max-w-2xl mx-auto">
-          <div
-            className={`flex items-center gap-2 cursor-pointer ${step >= 1 ? "text-[#dc143c]" : "text-[#666]"}`}
-            onClick={() => goToStep(1)}
-          >
+          {[1, 2, 3, 4].map((s) => (
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
-                step >= 1 ? "bg-[#dc143c] text-white" : "bg-white/10"
+              key={s}
+              className={`flex items-center gap-2 cursor-pointer ${
+                step >= s ? "text-[#dc143c]" : "text-[#666]"
               }`}
+              onClick={() => goToStep(s)}
             >
-              1
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+                  step >= s ? "bg-[#dc143c] text-white" : "bg-white/10"
+                }`}
+              >
+                {s}
+              </div>
+              <span className="text-sm font-medium hidden sm:block">
+                {s === 1
+                  ? "Тариф"
+                  : s === 2
+                    ? "Игра"
+                    : s === 3
+                      ? "Ядро"
+                      : "Оформление"}
+              </span>
             </div>
-            <span className="text-sm font-medium hidden sm:inline">Тариф</span>
-          </div>
-          <div
-            className={`flex-1 h-0.5 mx-4 transition-all ${step >= 2 ? "bg-[#dc143c]" : "bg-white/10"}`}
-          ></div>
-          <div
-            className={`flex items-center gap-2 cursor-pointer ${step >= 2 ? "text-[#dc143c]" : "text-[#666]"}`}
-            onClick={() => goToStep(2)}
-          >
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
-                step >= 2 ? "bg-[#dc143c] text-white" : "bg-white/10"
-              }`}
-            >
-              2
-            </div>
-            <span className="text-sm font-medium hidden sm:inline">Игра</span>
-          </div>
-          <div
-            className={`flex-1 h-0.5 mx-4 transition-all ${step >= 3 ? "bg-[#dc143c]" : "bg-white/10"}`}
-          ></div>
-          <div
-            className={`flex items-center gap-2 cursor-pointer ${step >= 3 ? "text-[#dc143c]" : "text-[#666]"}`}
-            onClick={() => goToStep(3)}
-          >
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
-                step >= 3 ? "bg-[#dc143c] text-white" : "bg-white/10"
-              }`}
-            >
-              3
-            </div>
-            <span className="text-sm font-medium hidden sm:inline">Ядро</span>
-          </div>
-          <div
-            className={`flex-1 h-0.5 mx-4 transition-all ${step >= 4 ? "bg-[#dc143c]" : "bg-white/10"}`}
-          ></div>
-          <div
-            className={`flex items-center gap-2 ${step >= 4 ? "text-[#dc143c]" : "text-[#666]"}`}
-          >
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
-                step >= 4 ? "bg-[#dc143c] text-white" : "bg-white/10"
-              }`}
-            >
-              4
-            </div>
-            <span className="text-sm font-medium hidden sm:inline">Заказ</span>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* Шаг 1: Выбранный тариф */}
-      {step >= 1 && (
-        <div className="glass-card p-6 animate-scale-in">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-              <svg
-                className="w-5 h-5 text-[#dc143c]"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                />
-              </svg>
-              1. Выбранный тариф
-            </h3>
-            <button
-              onClick={() => navigate("/plans")}
-              className="text-sm text-[#dc143c] hover:text-[#ff1493] transition-colors flex items-center gap-1"
-            >
-              Изменить
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </button>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#dc143c] to-[#ff1493] flex items-center justify-center">
-                <svg
-                  className="w-7 h-7 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">
-                  {selectedPlan.name}
-                </h2>
-                <p className="text-[#666] text-sm">
-                  {formatPrice(getPrice())} / {periodLabels[billingPeriod]}
-                </p>
+      {/* Шаг 1: Выбор тарифа */}
+      {step === 1 && (
+        <div className="glass-card p-8 animate-scale-in text-center">
+          <h2 className="text-2xl font-bold gradient-text mb-4">
+            Выбран тариф: {selectedPlan.name}
+          </h2>
+          <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto mb-6">
+            <div className="bg-white/5 p-4 rounded-xl">
+              <div className="text-[#666] text-sm mb-1">CPU</div>
+              <div className="text-white font-bold text-lg">
+                {selectedPlan.cpu}%
               </div>
             </div>
-            <div className="text-right hidden sm:block">
-              <div className="text-sm text-[#666]">
-                CPU: <span className="text-white">{selectedPlan.cpu}%</span>
+            <div className="bg-white/5 p-4 rounded-xl">
+              <div className="text-[#666] text-sm mb-1">RAM</div>
+              <div className="text-white font-bold text-lg">
+                {selectedPlan.ramMb} MB
               </div>
-              <div className="text-sm text-[#666]">
-                RAM: <span className="text-white">{selectedPlan.ramMb} MB</span>
-              </div>
-              <div className="text-sm text-[#666]">
-                Диск:{" "}
-                <span className="text-white">{selectedPlan.diskMb} MB</span>
+            </div>
+            <div className="bg-white/5 p-4 rounded-xl">
+              <div className="text-[#666] text-sm mb-1">Диск</div>
+              <div className="text-white font-bold text-lg">
+                {selectedPlan.diskMb} MB
               </div>
             </div>
           </div>
+          <button onClick={() => setStep(2)} className="btn-primary">
+            Продолжить
+          </button>
         </div>
       )}
 
       {/* Шаг 2: Выбор игры */}
-      {step >= 2 && (
-        <div className="glass-card p-6 animate-slide-up">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-              <svg
-                className="w-5 h-5 text-[#dc143c]"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
-                />
-              </svg>
-              2. Выбери игру
-            </h3>
-            {step > 1 && (
-              <button
-                onClick={() => goToStep(1)}
-                className="text-sm text-[#dc143c] hover:text-[#ff1493] transition-colors flex items-center gap-1"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-                Назад
-              </button>
-            )}
-          </div>
-
+      {step === 2 && (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold gradient-text text-center">
+            Выберите игру
+          </h2>
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="w-8 h-8 border-2 border-[#dc143c]/20 border-t-[#dc143c] rounded-full animate-spin"></div>
+            <div className="flex justify-center py-12">
+              <div className="w-12 h-12 border-4 border-[#dc143c]/20 border-t-[#dc143c] rounded-full animate-spin"></div>
             </div>
-          ) : nests && nests.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {nests.map((nest) => (
-                <button
-                  key={nest.id}
-                  onClick={() => handleNestSelect(nest)}
-                  className={`p-4 rounded-xl border transition-all duration-300 ${
-                    selectedNest?.id === nest.id
-                      ? "bg-[#dc143c]/10 border-[#dc143c]/50 text-white"
-                      : "bg-white/5 border-white/10 text-[#666] hover:border-[#dc143c]/30"
-                  }`}
-                >
-                  <p className="font-medium text-sm">{nest.name}</p>
-                </button>
-              ))}
+          ) : games.length === 0 ? (
+            <div className="glass-card p-8 text-center">
+              <p className="text-[#666] mb-4">Игры не найдены</p>
+              <button onClick={() => setStep(4)} className="btn-primary">
+                Перейти к оформлению
+              </button>
             </div>
           ) : (
-            <div className="text-center py-8 text-[#666]">
-              <p>Игры не загружены. Попробуйте обновить страницу.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {games.map((game, index) => (
+                <div
+                  key={game.id}
+                  onClick={() => handleGameSelect(game)}
+                  className="glass-card-hover p-6 cursor-pointer animate-scale-in"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#dc143c] to-[#ff1493] flex items-center justify-center shadow-lg shadow-[#dc143c]/30">
+                      {game.icon ? (
+                        <img
+                          src={game.icon}
+                          alt={game.name}
+                          className="w-6 h-6 object-cover rounded"
+                        />
+                      ) : (
+                        <svg
+                          className="w-6 h-6 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white">{game.name}</h3>
+                      {game.description && (
+                        <p className="text-xs text-[#666] line-clamp-2">
+                          {game.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
       )}
 
       {/* Шаг 3: Выбор ядра */}
-      {step >= 3 && selectedNest && (
-        <div className="glass-card p-6 animate-slide-up">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-              <svg
-                className="w-5 h-5 text-[#dc143c]"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                />
-              </svg>
-              3. Выбери ядро
-            </h3>
-            {step > 2 && (
-              <button
-                onClick={() => goToStep(2)}
-                className="text-sm text-[#dc143c] hover:text-[#ff1493] transition-colors flex items-center gap-1"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+      {step === 3 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <button
+              onClick={() => setStep(2)}
+              className="text-[#666] hover:text-white transition-colors"
+            >
+              ← Назад
+            </button>
+            <h2 className="text-2xl font-bold gradient-text">
+              Ядра для {selectedGame?.name}
+            </h2>
+          </div>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-12 h-12 border-4 border-[#dc143c]/20 border-t-[#dc143c] rounded-full animate-spin"></div>
+            </div>
+          ) : kernels.length === 0 ? (
+            <div className="glass-card p-8 text-center">
+              <p className="text-[#666] mb-4">Ядра не найдены</p>
+              <button onClick={() => setStep(2)} className="btn-primary">
+                Назад к играм
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {kernels.map((kernel, index) => (
+                <div
+                  key={kernel.id}
+                  onClick={() => handleKernelSelect(kernel)}
+                  className="glass-card-hover p-6 cursor-pointer animate-scale-in"
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-                Назад
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {selectedNest.eggs?.map((egg) => (
-              <button
-                key={egg.id}
-                onClick={() => handleEggSelect(egg)}
-                className={`p-4 rounded-xl border text-left transition-all duration-300 ${
-                  selectedEgg?.id === egg.id
-                    ? "bg-[#dc143c]/10 border-[#dc143c]/50 text-white"
-                    : "bg-white/5 border-white/10 text-[#666] hover:border-[#dc143c]/30"
-                }`}
-              >
-                <p className="font-medium">{egg.name}</p>
-                <p className="text-xs text-[#666] mt-1 line-clamp-2">
-                  {egg.description || egg.dockerImage}
-                </p>
-              </button>
-            ))}
-          </div>
+                  <h3 className="font-bold text-white text-lg mb-2">
+                    {kernel.name}
+                  </h3>
+                  {kernel.description && (
+                    <p className="text-sm text-[#666] mb-3 line-clamp-2">
+                      {kernel.description}
+                    </p>
+                  )}
+                  {kernel.dockerImage && (
+                    <div className="text-xs text-[#888] bg-white/5 p-2 rounded">
+                      Docker: {kernel.dockerImage.slice(0, 50)}
+                      {kernel.dockerImage.length > 50 ? "..." : ""}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {/* Шаг 4: Оформление */}
-      {step >= 4 && selectedEgg && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-slide-up">
-          {/* Левая колонка */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Название сервера */}
-            <div className="glass-card p-6">
-              <label className="block text-sm font-medium text-[#a0a0a0] mb-2">
-                Название сервера
-              </label>
-              <input
-                type="text"
-                value={serverName}
-                onChange={(e) => setServerName(e.target.value)}
-                placeholder="Мой сервер"
-                className="input-primary"
-              />
-            </div>
-
-            {/* Период оплаты */}
-            <div className="glass-card p-6">
-              <label className="block text-sm font-medium text-[#a0a0a0] mb-4">
-                Период оплаты
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                {Object.entries(periodLabels).map(([key, label]) => (
-                  <button
-                    key={key}
-                    onClick={() => setBillingPeriod(key)}
-                    className={`p-3 rounded-xl border text-sm font-medium transition-all ${
-                      billingPeriod === key
-                        ? "bg-[#dc143c]/10 border-[#dc143c]/50 text-white"
-                        : "bg-white/5 border-white/10 text-[#666] hover:border-[#dc143c]/30"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {error && (
-              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400">
-                {error}
-              </div>
-            )}
-
+      {step === 4 && (
+        <div className="space-y-6">
+          <div className="flex items-center gap-2 mb-4">
             <button
-              onClick={handleOrder}
-              disabled={loading || !serverName.trim()}
-              className="btn-primary w-full py-4 text-lg disabled:opacity-50"
+              onClick={() =>
+                selectedKernel
+                  ? setStep(3)
+                  : selectedGame
+                    ? setStep(2)
+                    : setStep(1)
+              }
+              className="text-[#666] hover:text-white transition-colors"
             >
-              {loading
-                ? "Оформление..."
-                : `Заказать за ${formatPrice(getPrice())}`}
+              ← Назад
             </button>
+            <h2 className="text-2xl font-bold gradient-text">
+              Оформление заказа
+            </h2>
           </div>
 
-          {/* Правая колонка - Итого */}
-          <div className="space-y-6">
-            <div className="glass-card p-6 sticky top-8">
-              <h3 className="text-lg font-bold text-white mb-4">Итого</h3>
+          {error && (
+            <div className="glass-card p-4 border border-red-500/30 text-red-400 animate-fade-in">
+              {error}
+            </div>
+          )}
 
-              <div className="space-y-3 text-sm mb-6">
-                <div className="flex justify-between">
-                  <span className="text-[#666]">Тариф</span>
-                  <span className="text-white">{selectedPlan.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#666]">Игра</span>
-                  <span className="text-white">{selectedNest?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#666]">Ядро</span>
-                  <span className="text-white">{selectedEgg?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#666]">Период</span>
-                  <span className="text-white">
-                    {periodLabels[billingPeriod]}
-                  </span>
+          <div className="glass-card p-6">
+            <h3 className="text-xl font-bold text-white mb-4">
+              Параметры сервера
+            </h3>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm text-[#666] mb-2">
+                  Тарифный план
+                </label>
+                <div className="text-white font-medium">
+                  {selectedPlan.name} - {formatPrice(getPrice())} /{" "}
+                  {periodLabels[billingPeriod]}
                 </div>
               </div>
 
-              <div className="divider"></div>
+              {selectedGame && (
+                <div>
+                  <label className="block text-sm text-[#666] mb-2">Игра</label>
+                  <div className="text-white font-medium">
+                    {selectedGame.name}
+                  </div>
+                </div>
+              )}
 
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-[#666]">К оплате:</span>
-                <span className="text-2xl font-bold gradient-text">
+              {selectedKernel && (
+                <div>
+                  <label className="block text-sm text-[#666] mb-2">Ядро</label>
+                  <div className="text-white font-medium">
+                    {selectedKernel.name}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm text-[#666] mb-2">
+                  Название сервера
+                </label>
+                <input
+                  type="text"
+                  value={serverName}
+                  onChange={(e) => setServerName(e.target.value)}
+                  placeholder="Мой сервер"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#dc143c]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-[#666] mb-2">
+                  Период оплаты
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    {
+                      value: "monthly",
+                      label: "1 мес",
+                      price: selectedPlan.priceMonthly,
+                    },
+                    {
+                      value: "quarterly",
+                      label: "3 мес",
+                      price:
+                        selectedPlan.priceQuarterly ||
+                        selectedPlan.priceMonthly * 3,
+                    },
+                    {
+                      value: "yearly",
+                      label: "12 мес",
+                      price:
+                        selectedPlan.priceYearly ||
+                        selectedPlan.priceMonthly * 12,
+                    },
+                  ].map((period) => (
+                    <button
+                      key={period.value}
+                      onClick={() => setBillingPeriod(period.value)}
+                      className={`p-3 rounded-lg border transition-all ${
+                        billingPeriod === period.value
+                          ? "border-[#dc143c] bg-[#dc143c]/20"
+                          : "border-white/10 bg-white/5 hover:border-white/20"
+                      }`}
+                    >
+                      <div className="text-xs text-[#666]">{period.label}</div>
+                      <div className="text-sm font-bold text-white">
+                        {formatPrice(period.price)}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-white/10">
+              <div>
+                <div className="text-sm text-[#666]">Итого к оплате:</div>
+                <div className="text-3xl font-bold gradient-text">
                   {formatPrice(getPrice())}
-                </span>
+                </div>
               </div>
-
-              <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                <p className="text-xs text-[#666] mb-2">Информация о ядре:</p>
-                <p className="text-xs font-mono text-[#a0a0a0] break-all">
-                  {selectedEgg.dockerImage}
-                </p>
-              </div>
+              <button
+                onClick={handleOrder}
+                disabled={loading}
+                className="btn-primary px-8 py-3 text-lg"
+              >
+                {loading ? "Создание..." : "Оплатить"}
+              </button>
             </div>
           </div>
         </div>

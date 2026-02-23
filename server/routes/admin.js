@@ -880,20 +880,29 @@ router.post("/ptero/sync", async (req, res) => {
           .update(games)
           .set({
             name: nest.name,
-            description: nest.description,
+            description: nest.description || "",
+            icon: null,
           })
           .where(eq(games.id, existingGame.id));
       } else {
         await db.insert(games).values({
           name: nest.name,
-          description: nest.description,
+          description: nest.description || "",
+          icon: null,
           pteroNestId: nest.id,
-          isActive: true,
+          isActive: 1,
           sortOrder: 0,
           createdAt: new Date().toISOString(),
         });
         gamesCreated++;
       }
+
+      // Получаем ID созданной/обновленной игры
+      const game = await db
+        .select()
+        .from(games)
+        .where(eq(games.pteroNestId, nest.id))
+        .get();
 
       // Создаём или обновляем ядра (яйца)
       for (const egg of nest.eggs) {
@@ -907,28 +916,26 @@ router.post("/ptero/sync", async (req, res) => {
           await db
             .update(kernels)
             .set({
+              gameId: game ? game.id : null,
               name: egg.name,
-              description: egg.description,
+              description: egg.description || "",
               dockerImage: egg.dockerImage,
               startup: egg.startup,
-              environment: egg.environment
-                ? JSON.stringify(egg.environment)
-                : null,
+              pteroNestId: nest.id,
+              environment: null, // Переменные получаем динамически при создании сервера
             })
             .where(eq(kernels.id, existingKernel.id));
         } else {
           await db.insert(kernels).values({
-            gameId: existingGame ? existingGame.id : null,
+            gameId: game ? game.id : null,
             name: egg.name,
-            description: egg.description,
+            description: egg.description || "",
             pteroEggId: egg.id,
             pteroNestId: nest.id,
             dockerImage: egg.dockerImage,
             startup: egg.startup,
-            environment: egg.environment
-              ? JSON.stringify(egg.environment)
-              : null,
-            isActive: true,
+            environment: null,
+            isActive: 1,
             sortOrder: 0,
             createdAt: new Date().toISOString(),
           });
