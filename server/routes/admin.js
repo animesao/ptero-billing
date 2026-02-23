@@ -16,7 +16,8 @@ import {
 } from "../schema.js";
 import { eq, desc, sql, count } from "drizzle-orm";
 import { requireAdmin } from "../middleware/auth.js";
-import * as ptero from "../services/pterodactyl.js";
+import { syncGamesAndKernels } from "../services/pterodactyl-api.js";
+import { deletePteroServer } from "../services/server-creator.js";
 
 const router = Router();
 router.use(requireAdmin);
@@ -422,7 +423,7 @@ router.delete("/servers/:id", async (req, res) => {
     // Удаляем сервер в Pterodactyl если есть pteroServerId
     if (server.pteroServerId) {
       try {
-        await ptero.deleteServer(server.pteroServerId);
+        await deletePteroServer(server.pteroServerId);
         console.log(`Server ${server.pteroServerId} deleted from Pterodactyl`);
       } catch (pteroError) {
         console.error(
@@ -863,92 +864,11 @@ router.delete("/kernels/:id", async (req, res) => {
 // Синхронизация игр и ядер из Pterodactyl
 router.post("/ptero/sync", async (req, res) => {
   try {
-    const nests = await ptero.getNestsWithEggs();
-    let gamesCreated = 0;
-    let kernelsCreated = 0;
-
-    for (const nest of nests) {
-      // Создаём или обновляем игру
-      const existingGame = await db
-        .select()
-        .from(games)
-        .where(eq(games.pteroNestId, nest.id))
-        .get();
-
-      if (existingGame) {
-        await db
-          .update(games)
-          .set({
-            name: nest.name,
-            description: nest.description || "",
-            icon: null,
-          })
-          .where(eq(games.id, existingGame.id));
-      } else {
-        await db.insert(games).values({
-          name: nest.name,
-          description: nest.description || "",
-          icon: null,
-          pteroNestId: nest.id,
-          isActive: 1,
-          sortOrder: 0,
-          createdAt: new Date().toISOString(),
-        });
-        gamesCreated++;
-      }
-
-      // Получаем ID созданной/обновленной игры
-      const game = await db
-        .select()
-        .from(games)
-        .where(eq(games.pteroNestId, nest.id))
-        .get();
-
-      // Создаём или обновляем ядра (яйца)
-      for (const egg of nest.eggs) {
-        const existingKernel = await db
-          .select()
-          .from(kernels)
-          .where(eq(kernels.pteroEggId, egg.id))
-          .get();
-
-        if (existingKernel) {
-          await db
-            .update(kernels)
-            .set({
-              gameId: game ? game.id : null,
-              name: egg.name,
-              description: egg.description || "",
-              dockerImage: egg.dockerImage,
-              startup: egg.startup,
-              pteroNestId: nest.id,
-              environment: null, // Переменные получаем динамически при создании сервера
-            })
-            .where(eq(kernels.id, existingKernel.id));
-        } else {
-          await db.insert(kernels).values({
-            gameId: game ? game.id : null,
-            name: egg.name,
-            description: egg.description || "",
-            pteroEggId: egg.id,
-            pteroNestId: nest.id,
-            dockerImage: egg.dockerImage,
-            startup: egg.startup,
-            environment: null,
-            isActive: 1,
-            sortOrder: 0,
-            createdAt: new Date().toISOString(),
-          });
-          kernelsCreated++;
-        }
-      }
-    }
-
+    const result = await syncGamesAndKernels();
     res.json({
       success: true,
-      message: `Синхронизировано: ${gamesCreated} игр, ${kernelsCreated} ядер`,
-      gamesCreated,
-      kernelsCreated,
+      message: `Синхронизировано: ${result.gamesCreated} игр, ${result.kernelsCreated} ядер, сохранено переменных: ${result.environmentsSaved}`,
+      ...result,
     });
   } catch (error) {
     console.error("Sync error:", error);

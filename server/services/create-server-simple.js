@@ -10,7 +10,7 @@ const clientCache = new Map();
 /**
  * Получить конфигурацию Pterodactyl
  */
-async function getConfig() {
+export async function getConfig() {
   const rows = await db
     .select()
     .from(settings)
@@ -25,7 +25,7 @@ async function getConfig() {
 /**
  * Создать HTTP клиент для Pterodactyl API
  */
-function getClient(config, instanceId = null) {
+export function getClient(config, instanceId = null) {
   const cacheKey = instanceId || "default";
 
   if (clientCache.has(cacheKey)) {
@@ -105,7 +105,12 @@ function getDefaultValueForVariable(varName) {
   // Сеть
   if (upper.includes("PORT")) return "25565";
   if (upper.includes("IP") || upper.includes("HOST")) return "0.0.0.0";
-  if (upper.includes("TOKEN") || upper.includes("KEY") || upper.includes("SECRET")) return "";
+  if (
+    upper.includes("TOKEN") ||
+    upper.includes("KEY") ||
+    upper.includes("SECRET")
+  )
+    return "";
   if (upper.includes("EMAIL")) return "admin@example.com";
 
   // Ресурсы
@@ -115,7 +120,12 @@ function getDefaultValueForVariable(varName) {
 
   // Общее
   if (upper.includes("MAP") || upper.includes("WORLD")) return "latest";
-  if (upper.includes("NAME") || upper.includes("TITLE") || upper.includes("SESSION")) return "Server";
+  if (
+    upper.includes("NAME") ||
+    upper.includes("TITLE") ||
+    upper.includes("SESSION")
+  )
+    return "Server";
   if (upper.includes("PASSWORD") || upper.includes("PASSWD")) return "";
 
   return "latest";
@@ -131,8 +141,14 @@ function extractVariablesFromStartup(startup) {
   const matches1 = startup.match(/\{\{([A-Z_][A-Z0-9_]*)\}\}/gi);
   const matches2 = startup.match(/\$\{([A-Z_][A-Z0-9_]*)\}/gi);
 
-  if (matches1) matches1.forEach((m) => variables.add(m.replace("{{", "").replace("}}", "")));
-  if (matches2) matches2.forEach((m) => variables.add(m.replace("${", "").replace("}", "")));
+  if (matches1)
+    matches1.forEach((m) =>
+      variables.add(m.replace("{{", "").replace("}}", "")),
+    );
+  if (matches2)
+    matches2.forEach((m) =>
+      variables.add(m.replace("${", "").replace("}", "")),
+    );
 
   return Array.from(variables).map((name) => ({
     env_variable: name,
@@ -156,11 +172,12 @@ async function buildEnvironment(kernelId, startup) {
 
       if (kernel && kernel.environment) {
         try {
-          const parsed = typeof kernel.environment === 'string'
-            ? JSON.parse(kernel.environment)
-            : kernel.environment;
+          const parsed =
+            typeof kernel.environment === "string"
+              ? JSON.parse(kernel.environment)
+              : kernel.environment;
 
-          if (parsed && typeof parsed === 'object') {
+          if (parsed && typeof parsed === "object") {
             Object.assign(environment, parsed);
             console.log("Loaded environment from kernel DB:", environment);
             return environment;
@@ -178,12 +195,64 @@ async function buildEnvironment(kernelId, startup) {
   if (startup) {
     const extractedVars = extractVariablesFromStartup(startup);
     for (const variable of extractedVars) {
-      environment[variable.env_variable] = variable.default_value || getDefaultValueForVariable(variable.env_variable);
+      environment[variable.env_variable] =
+        variable.default_value ||
+        getDefaultValueForVariable(variable.env_variable);
     }
     console.log("Generated environment from startup:", environment);
   }
 
   return environment;
+}
+
+/**
+ * Получить переменные окружения из Pterodactyl API
+ */
+async function getEggVariablesFromPterodactyl(client, nestId, eggId) {
+  try {
+    // Получаем яйцо с переменными
+    const response = await client.get(`/nests/${nestId}/eggs/${eggId}`);
+    const attributes = response.data.attributes || {};
+
+    // Переменные могут быть в attributes.variables
+    const variables = attributes.variables || [];
+
+    console.log("Pterodactyl egg variables raw:", JSON.stringify(variables));
+
+    const envVars = {};
+    for (const v of variables) {
+      const envVar = v.env_variable || v.environment_variable;
+      const defaultValue = v.default_value || v.default || "latest";
+      const required = v.required || false;
+
+      if (envVar) {
+        // Для required переменных используем значение по умолчанию
+        if (required) {
+          envVars[envVar] = defaultValue;
+        } else {
+          envVars[envVar] = defaultValue || "";
+        }
+      }
+    }
+
+    // Если переменных нет в attributes.variables, пробуем извлечь из startup
+    if (Object.keys(envVars).length === 0 && attributes.startup) {
+      const startup = attributes.startup;
+      const matches = startup.match(/\{\{([A-Z_][A-Z0-9_]*)\}\}/gi);
+      if (matches) {
+        for (const match of matches) {
+          const varName = match.replace("{{", "").replace("}}", "");
+          envVars[varName] = getDefaultValueForVariable(varName);
+        }
+      }
+    }
+
+    console.log("✅ Got egg variables from Pterodactyl:", envVars);
+    return envVars;
+  } catch (error) {
+    console.error("Failed to get egg variables:", error.message);
+    return null;
+  }
 }
 
 /**
@@ -196,7 +265,8 @@ async function selectNode(client, plan) {
       try {
         const nodeIdsArray = JSON.parse(plan.nodeIds);
         if (Array.isArray(nodeIdsArray) && nodeIdsArray.length > 0) {
-          const selectedId = nodeIdsArray[Math.floor(Math.random() * nodeIdsArray.length)];
+          const selectedId =
+            nodeIdsArray[Math.floor(Math.random() * nodeIdsArray.length)];
           console.log("Selected random node from nodeIds:", selectedId);
           return selectedId;
         }
@@ -212,18 +282,20 @@ async function selectNode(client, plan) {
     }
 
     // Выбираем наименее загруженную
-    const nodesResponse = await client.get("/nodes", { params: { per_page: 100 } });
+    const nodesResponse = await client.get("/nodes", {
+      params: { per_page: 100 },
+    });
     const nodes = nodesResponse.data.data || [];
 
     const nodesWithLoad = await Promise.all(
       nodes.map(async (node) => {
         try {
           const nodeId = node.attributes.id;
-          const serversResponse = await client.get(
-            `/nodes/${nodeId}/servers`,
-            { params: { per_page: 1 } }
-          );
-          const totalServers = serversResponse.data.meta?.pagination?.total || 0;
+          const serversResponse = await client.get(`/nodes/${nodeId}/servers`, {
+            params: { per_page: 1 },
+          });
+          const totalServers =
+            serversResponse.data.meta?.pagination?.total || 0;
 
           return {
             id: nodeId,
@@ -242,12 +314,14 @@ async function selectNode(client, plan) {
       }),
     );
 
-    const availableNodes = nodesWithLoad.filter(n => !n.isUnderMaintenance);
+    const availableNodes = nodesWithLoad.filter((n) => !n.isUnderMaintenance);
     availableNodes.sort((a, b) => a.load - b.load);
 
     if (availableNodes.length > 0) {
       const leastLoaded = availableNodes[0];
-      console.log(`Selected least loaded node: ${leastLoaded.name} (load: ${leastLoaded.load})`);
+      console.log(
+        `Selected least loaded node: ${leastLoaded.name} (load: ${leastLoaded.load})`,
+      );
       return leastLoaded.id;
     }
   } catch (error) {
@@ -264,7 +338,7 @@ async function getFreeAllocation(client, nodeId) {
   try {
     const allocationsResponse = await client.get(
       `/nodes/${nodeId}/allocations`,
-      { params: { per_page: 500 } }
+      { params: { per_page: 500 } },
     );
     const allocations = allocationsResponse.data.data || [];
     const free = allocations.filter((a) => a.attributes?.assigned === false);
@@ -295,16 +369,10 @@ export async function createPteroServer({
   const config = await getConfig();
   const client = getClient(config, pteroInstanceId);
 
-  console.log(
-    "Creating server with plan:",
-    JSON.stringify({
-      id: plan.id,
-      name: plan.name,
-      eggId: plan.eggId,
-      nestId: plan.nestId,
-      kernelId,
-    }),
-  );
+  console.log("=== CREATING SERVER ===");
+  console.log("Plan:", JSON.stringify(plan, null, 2));
+  console.log("Kernel ID:", kernelId);
+  console.log("Ptero User ID:", pteroUserId);
 
   // 1. Определяем nestId и eggId
   let actualNestId = plan.nestId;
@@ -323,6 +391,7 @@ export async function createPteroServer({
 
       if (kernel) {
         console.log("Using kernel from DB:", kernel.name);
+        console.log("Kernel data:", JSON.stringify(kernel, null, 2));
 
         // Используем данные ядра если они не указаны в плане
         if (!actualNestId) actualNestId = kernel.pteroNestId;
@@ -330,38 +399,87 @@ export async function createPteroServer({
         if (!dockerImage) dockerImage = kernel.dockerImage;
         if (!startup) startup = kernel.startup;
         if (!environment) environment = kernel.environment;
+      } else {
+        console.log("Kernel not found in DB for ID:", kernelId);
       }
     } catch (error) {
       console.error("Error loading kernel from DB:", error.message);
     }
   }
 
+  console.log("Final values:");
+  console.log("  nestId:", actualNestId);
+  console.log("  eggId:", actualEggId);
+  console.log("  dockerImage:", dockerImage);
+  console.log("  startup:", startup);
+
   // Проверяем что все данные есть
   if (!actualNestId || !actualEggId) {
-    throw new Error("Не указаны nestId или eggId. Проверьте настройки тарифа или ядра.");
+    const errorMsg = `Не указаны nestId или eggId. nestId=${actualNestId}, eggId=${actualEggId}`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
   }
 
   // 2. Строим переменные окружения
   let finalEnvironment = {};
+
+  // Пытаемся получить из БД (из плана или ядра)
   if (environment) {
     try {
-      finalEnvironment = typeof environment === 'string'
-        ? JSON.parse(environment)
-        : environment;
+      const parsed =
+        typeof environment === "string" ? JSON.parse(environment) : environment;
+
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        Object.keys(parsed).length > 0
+      ) {
+        finalEnvironment = parsed;
+        console.log("✅ Loaded environment from DB:", finalEnvironment);
+      }
     } catch (e) {
-      console.log("Failed to parse environment from DB, generating from startup");
+      console.log("Failed to parse environment from DB:", e.message);
     }
   }
 
-  if (Object.keys(finalEnvironment).length === 0 && startup) {
-    finalEnvironment = await buildEnvironment(kernelId, startup);
+  // Если нет переменных из БД, получаем из Pterodactyl API
+  if (Object.keys(finalEnvironment).length === 0) {
+    console.log("⚙️ Getting variables from Pterodactyl API...");
+    const pteroVars = await getEggVariablesFromPterodactyl(
+      client,
+      actualNestId,
+      actualEggId,
+    );
+    if (pteroVars && Object.keys(pteroVars).length > 0) {
+      finalEnvironment = pteroVars;
+      console.log("✅ Got environment from Pterodactyl:", finalEnvironment);
+    }
   }
+
+  // Если всё ещё нет, генерируем из startup
+  if (Object.keys(finalEnvironment).length === 0 && startup) {
+    console.log("⚙️ Generating environment from startup...");
+    finalEnvironment = await buildEnvironment(null, startup);
+  }
+
+  // Если всё ещё нет, используем дефолтные для Java
+  if (Object.keys(finalEnvironment).length === 0) {
+    console.log("⚙️ Using default Java environment");
+    finalEnvironment = {
+      SERVER_JARFILE: "server.jar",
+      BUILD_NUMBER: "latest",
+    };
+  }
+
+  console.log("✅ Final environment:", JSON.stringify(finalEnvironment));
 
   // 3. Выбираем ноду
   const selectedNodeId = await selectNode(client, plan);
   if (!selectedNodeId) {
     throw new Error("No available nodes for server deployment");
   }
+
+  console.log("Selected node ID:", selectedNodeId);
 
   // 4. Получаем аллокацию
   let allocationId = plan.allocationId;
@@ -378,7 +496,8 @@ export async function createPteroServer({
     user: parseInt(pteroUserId),
     egg: parseInt(actualEggId),
     docker_image: dockerImage || "ghcr.io/parkervcp/yolks:java_21",
-    startup: startup || "java -Xms128M -Xmx${SERVER_MEMORY}M -jar ${SERVER_JARFILE}",
+    startup:
+      startup || "java -Xms128M -Xmx${SERVER_MEMORY}M -jar ${SERVER_JARFILE}",
     environment: finalEnvironment,
     limits: {
       memory: parseInt(plan.ramMb) || 1024,
@@ -399,37 +518,35 @@ export async function createPteroServer({
     payload.allocation = {
       default: parseInt(allocationId),
     };
+    console.log("Using allocation:", allocationId);
   } else {
     payload.deploy = {
       locations: [parseInt(selectedNodeId)],
       dedicated_ip: false,
       port_range: ["60000-60100"],
     };
+    console.log("Using deploy mode with node:", selectedNodeId);
   }
 
-  console.log(
-    "Creating server with payload:",
-    JSON.stringify(
-      {
-        ...payload,
-        environment: `{${Object.keys(payload.environment).length} variables}`,
-      },
-      null,
-      2,
-    ),
-  );
+  console.log("Final payload:", JSON.stringify(payload, null, 2));
 
   try {
     const response = await client.post("/servers", payload);
     const serverId = response.data.attributes?.id;
-    console.log("Server created successfully:", serverId);
+    const identifier = response.data.attributes?.identifier;
+    console.log("✅ Server created successfully!");
+    console.log("  Server ID:", serverId);
+    console.log("  Identifier:", identifier);
     return response.data;
   } catch (error) {
+    console.error("❌ Failed to create server:");
     if (error.response?.data) {
       console.error(
         "Pterodactyl API error:",
         JSON.stringify(error.response.data, null, 2),
       );
+    } else {
+      console.error("Error:", error.message);
     }
     throw error;
   }

@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { db } from "../db.js";
 import { users } from "../schema.js";
 import { eq } from "drizzle-orm";
-import * as ptero from "../services/pterodactyl.js";
+import * as ptero from "../services/pterodactyl-users.js";
 
 const router = Router();
 

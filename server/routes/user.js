@@ -15,12 +15,11 @@ import {
 } from "../schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth.js";
-import * as ptero from "../services/pterodactyl.js";
 import {
   createPteroServer,
   deletePteroServer,
   getServerStatus,
-} from "../services/create-server-simple.js";
+} from "../services/server-creator.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -669,6 +668,15 @@ router.post("/orders", async (req, res) => {
     if (eggId && eggId !== plan.eggId) {
       planToUse = { ...planToUse, eggId };
     }
+
+    console.log("=== ORDER DEBUG ===");
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
+    console.log("Original plan:", JSON.stringify(plan, null, 2));
+    console.log(
+      "Kernel data:",
+      kernelData ? JSON.stringify(kernelData, null, 2) : "null",
+    );
+    console.log("Plan to use:", JSON.stringify(planToUse, null, 2));
 
     // Проверяем что все необходимые данные есть
     if (!planToUse.eggId) {
