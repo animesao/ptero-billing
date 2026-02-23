@@ -1,4 +1,5 @@
 import axios from "axios";
+import https from "https";
 import { db } from "../db.js";
 import { settings } from "../schema.js";
 import { eq } from "drizzle-orm";
@@ -26,6 +27,9 @@ function getClient(config) {
       Accept: "application/json",
     },
     timeout: 30000,
+    httpsAgent: new https.Agent({
+      rejectUnauthorized: false,
+    }),
   });
 }
 
