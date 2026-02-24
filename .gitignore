@@ -1,23 +1,39 @@
-node_modules/
-.config/
-*.log
-.env.local
+# Ignore dependencies and cache
+/.idea
+/node_modules
+/vendor
+/storage/*.key
 
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-pterobilling.db
+# Ignore public assets
+/public/hot
+/public/storage
+/storage/app/public/logo.png
 
-# Build output
-client/dist/
+# Ignore environment files and configuration
+.env
+.env.testing
+.env.backup
+.env.dev
 
-# OS files
-.DS_Store
-Thumbs.db
+# Ignore testing and debug logs
+.phpunit.result.cache
+npm-debug.log
+yarn-error.log
+yarn.lock
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# Ignore Docker and Homestead configuration
+docker-compose.override.yml
+Homestead.json
+Homestead.yaml
+
+# Ignore gitignore itself
+.gitignore
+
+# Ignore installation logs and locks
+public/install/logs.txt
+install.lock
+public/install/logs/installer.log
+
+/.idea
+cpggdatabase.sql
+/dump.rdb
