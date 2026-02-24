@@ -1,5 +1,10 @@
 ﻿<?php
 
+namespace App\Helpers;
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
 /*
  *
  *  All this does is tracking the total number of installations of ptero-billing for us to know how many people use it.
@@ -8,38 +13,39 @@
  *
  */
 
-namespace App\Helpers;
-
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-
 class CallHomeHelper
 {
     /**
      *
      * @return void
+     * @throws \Exception
      */
-    public static function callHomeOnce(): void
+    public static function callHome()
     {
-        $flagFile = storage_path('app/callhome_sent.flag');
-        if (file_exists($flagFile)) {
-            return;
-        }
-
         try {
-            $url = parse_url(config('app.url'), PHP_URL_HOST);
-            $urlHash = md5($url);
-            $promise = Http::async()->post('https://utils.Ptero-Billing/callhome.php', [
-                'id' => $urlHash,
-            ]);
-            $response = $promise->wait();
-            Log::info('CallHome: request sent');
-            file_put_contents($flagFile, $response->body());
+            // Get domain
+            $domain = request()->getHost();
+
+            // Check if already called
+            $callHomeFile = storage_path("app/call_home_sent");
+
+            if (file_exists($callHomeFile)) {
+                return;
+            }
+
+            // Send request
+            $promise = Http::async()->post(
+                "https://utils.ptero-billing.gg/callhome.php",
+                [
+                    "domain" => $domain,
+                    "version" => config("app.version"),
+                ],
+            );
+
+            // Create file to prevent multiple calls
+            file_put_contents($callHomeFile, "sent");
         } catch (\Exception $e) {
-            Log::error('CallHome fail: ' . $e->getMessage());
+            Log::error("CallHome failed: " . $e->getMessage());
         }
     }
 }
-
-
-
