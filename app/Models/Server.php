@@ -2,183 +2,107 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
-use App\Classes\PterodactylClient;
-use App\Enums\BillingPriority;
-use App\Settings\PterodactylSettings;
-use GuzzleHttp\Promise\PromiseInterface;
-use Hidehalo\Nanoid\Client;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Http\Client\Response;
-use Spatie\Activitylog\LogOptions;
-use Spatie\Activitylog\Traits\LogsActivity;
-use Exception;
 
-/**
- * Class Server
- */
 class Server extends Model
 {
     use HasFactory;
-    use LogsActivity;
 
-    private PterodactylClient $pterodactyl;
-
-    public function getActivitylogOptions(): LogOptions
-    {
-        return LogOptions::defaults()
-            ->logFillable()
-            ->logOnlyDirty()
-            ->dontSubmitEmptyLogs();
-    }
-
-    /**
-     * @var bool
-     */
-    public $incrementing = false;
-
-    /**
-     * @var string[]
-     */
-    protected static $ignoreChangedAttributes = ['pterodactyl_id', 'identifier', 'updated_at'];
-
-    /**
-     * @var string[]
-     */
-    protected static $logAttributes = ['name', 'description'];
-
-    /**
-     * @var string[]
-     */
     protected $fillable = [
-        "name",
-        "description",
-        "suspended",
-        "identifier",
-        "billing_priority",
-        "product_id",
-        "pterodactyl_id",
-        "last_billed",
-        "canceled"
+        'user_id',
+        'order_id',
+        'product_id',
+        'name',
+        'pterodactyl_id',
+        'identifier',
+        'node_id',
+        'status',
+        'cpu',
+        'memory',
+        'disk',
+        'io',
+        'databases',
+        'allocations',
+        'backups',
+        'ip_address',
+        'port',
+        'next_billing_date',
+        'suspended_at',
+        'terminated_at',
     ];
 
-    /**
-     * @var string[]
-     */
     protected $casts = [
-        'suspended' => 'datetime',
-        'billing_priority' => BillingPriority::class
+        'next_billing_date' => 'datetime',
+        'suspended_at' => 'datetime',
+        'terminated_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
-    public function __construct()
-    {
-        parent::__construct();
-
-        $ptero_settings = new PterodactylSettings();
-        $this->pterodactyl = new PterodactylClient($ptero_settings);
-    }
-
-    public static function boot()
-    {
-        parent::boot();
-
-        static::creating(function (Server $server) {
-            $client = new Client();
-
-            $server->{$server->getKeyName()} = $client->generateId($size = 21);
-        });
-
-        static::deleting(function (Server $server) {
-            $response = $server->pterodactyl->application->delete("/application/servers/{$server->pterodactyl_id}");
-            if ($response->failed() && !is_null($server->pterodactyl_id)) {
-                //only return error when it's not a 404 error
-                if ($response['errors'][0]['status'] != '404') {
-                    throw new Exception($response['errors'][0]['code']);
-                }
-            }
-        });
-    }
-
     /**
-     * @return bool
+     * Статусы сервера
      */
-    public function isSuspended()
-    {
-        return !is_null($this->suspended);
-    }
+    const STATUS_PENDING = 'pending';
+    const STATUS_ACTIVE = 'active';
+    const STATUS_SUSPENDED = 'suspended';
+    const STATUS_TERMINATED = 'terminated';
 
     /**
-     * @return PromiseInterface|Response
-     */
-    public function getPterodactylServer()
-    {
-        return $this->pterodactyl->application->get("/application/servers/{$this->pterodactyl_id}");
-    }
-
-    /**
-     * @throws Exception
-     */
-    public function suspend()
-    {
-        $response = $this->pterodactyl->suspendServer($this);
-
-        if ($response->successful()) {
-            $this->update([
-                'suspended' => now(),
-            ]);
-        }
-
-        return $this;
-    }
-
-    /**
-     * @throws Exception
-     */
-    public function unSuspend()
-    {
-        $response = $this->pterodactyl->unSuspendServer($this);
-
-        if ($response->successful()) {
-            $this->update([
-                'suspended' => null,
-                'last_billed' => Carbon::now()->toDateTimeString(),
-            ]);
-        }
-
-
-        return $this;
-    }
-
-    /**
-     * @return BelongsTo
-     */
-    public function product()
-    {
-        return $this->belongsTo(Product::class, 'product_id', 'id');
-    }
-
-    /**
-     * @return BelongsTo
+     * Связь с пользователем
      */
     public function user()
     {
-        return $this->belongsTo(User::class, 'user_id', 'id');
+        return $this->belongsTo(User::class);
     }
 
-    public function getEffectiveBillingPriorityAttribute()
+    /**
+     * Связь с заказом
+     */
+    public function order()
     {
-        return $this->billing_priority ?? $this->product->default_billing_priority;
+        return $this->belongsTo(Order::class);
     }
 
-    public function scopeByBillingPriority($query)
+    /**
+     * Связь с продуктом
+     */
+    public function product()
     {
-        return $query->orderByRaw('COALESCE(servers.billing_priority, (
-                SELECT default_billing_priority
-                FROM products
-                WHERE products.id = servers.product_id
-            ))')
-            ->orderBy('created_at', 'asc');
+        return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * Связь с инвойсами
+     */
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    /**
+     * Проверка статуса
+     */
+    public function isActive(): bool
+    {
+        return $this->status === self::STATUS_ACTIVE;
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->status === self::STATUS_SUSPENDED;
+    }
+
+    public function isTerminated(): bool
+    {
+        return $this->status === self::STATUS_TERMINATED;
+    }
+
+    /**
+     * Получить адрес сервера
+     */
+    public function getAddressAttribute(): string
+    {
+        return "{$this->ip_address}:{$this->port}";
     }
 }

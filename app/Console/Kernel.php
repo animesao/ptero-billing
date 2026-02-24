@@ -1,50 +1,39 @@
 <?php
 
-namespace App\Console;
-
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
-use Illuminate\Support\Facades\Storage;
 
 class Kernel extends ConsoleKernel
 {
     /**
-     * The Artisan commands provided by your application.
-     *
-     * @var array
-     */
-    protected $commands = [
-        Commands\ChargeServers::class,
-        Commands\DeleteExpiredCoupons::class,
-    ];
-
-    /**
      * Define the application's command schedule.
-     *
-     * @param  \Illuminate\Console\Scheduling\Schedule  $schedule
-     * @return void
      */
-    protected function schedule(Schedule $schedule)
+    protected function schedule(Schedule $schedule): void
     {
-        $schedule->command('servers:charge')->everyMinute();
-        $schedule->command('cp:versioncheck:get')->daily();
-        $schedule->command('payments:open:clear')->daily();
-        $schedule->command('coupons:delete')->daily();
+        // Проверка инвойсов каждый день в 00:00
+        $schedule->command('billing:check-invoices')
+            ->daily()
+            ->at('00:00')
+            ->withoutOverlapping();
 
-        //log cronjob activity
-        $schedule->call(function () {
-            Storage::disk('logs')->put('cron.log', 'Last activity from cronjobs - ' . now());
-        })->everyMinute();
+        // Генерация инвойсов каждый день в 01:00
+        $schedule->command('billing:generate-invoices')
+            ->daily()
+            ->at('01:00')
+            ->withoutOverlapping();
+
+        // Запуск воркера очередей
+        $schedule->command('queue:work --stop-when-empty')
+            ->everyMinute()
+            ->withoutOverlapping();
     }
 
     /**
      * Register the commands for the application.
-     *
-     * @return void
      */
-    protected function commands()
+    protected function commands(): void
     {
-        $this->load(__DIR__ . '/Commands');
+        $this->load(__DIR__.'/Commands');
 
         require base_path('routes/console.php');
     }

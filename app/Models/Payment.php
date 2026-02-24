@@ -2,61 +2,88 @@
 
 namespace App\Models;
 
-use App\Enums\PaymentStatus;
-use Hidehalo\Nanoid\Client;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Payment extends Model
 {
     use HasFactory;
 
-    public $incrementing = false;
-    protected $primaryKey = 'id';
-
-    /**
-     * @var string[]
-     */
     protected $fillable = [
-        'id',
         'user_id',
-        'payment_id',
-        'payment_method',
+        'invoice_id',
+        'order_id',
+        'gateway',
+        'transaction_id',
         'status',
-        'type',
         'amount',
-        'price',
-        'tax_value',
-        'total_price',
-        'tax_percent',
-        'currency_code',
-        'shop_item_product_id',
+        'currency',
+        'payload',
+        'paid_at',
     ];
 
-    /**
-     * @var string[]
-     */
     protected $casts = [
-        'status' => PaymentStatus::class
+        'amount' => 'decimal:2',
+        'payload' => 'array',
+        'paid_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
-    public static function boot()
-    {
-        parent::boot();
-
-        static::creating(function (Payment $payment) {
-            $client = new Client();
-
-            $payment->{$payment->getKeyName()} = $client->generateId($size = 8);
-        });
-    }
+    /**
+     * Статусы платежа
+     */
+    const STATUS_PENDING = 'pending';
+    const STATUS_COMPLETED = 'completed';
+    const STATUS_FAILED = 'failed';
+    const STATUS_REFUNDED = 'refunded';
 
     /**
-     * @return BelongsTo
+     * Платёжные шлюзы
+     */
+    const GATEWAY_STRIPE = 'stripe';
+    const GATEWAY_PAYPAL = 'paypal';
+    const GATEWAY_BALANCE = 'balance';
+
+    /**
+     * Связь с пользователем
      */
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Связь с инвойсом
+     */
+    public function invoice()
+    {
+        return $this->belongsTo(Invoice::class);
+    }
+
+    /**
+     * Связь с заказом
+     */
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    /**
+     * Проверка статуса
+     */
+    public function isCompleted(): bool
+    {
+        return $this->status === self::STATUS_COMPLETED;
+    }
+
+    public function isPending(): bool
+    {
+        return $this->status === self::STATUS_PENDING;
+    }
+
+    public function isFailed(): bool
+    {
+        return $this->status === self::STATUS_FAILED;
     }
 }

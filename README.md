@@ -1,261 +1,214 @@
-﻿<div align="center">
-    <img src="https://raw.githubusercontent.com/animesao/ptero-billing/main/public/images/ptero-billing-logo.png" width="150" alt="Ptero-Billing Logo" />
-    <h1>Ptero-Billing</h1>
-    <p>Современная и бесплатная биллинг-панель для хостинг-провайдеров</p>
-</div>
+# PteroBilling - Биллинговая система для Pterodactyl Panel
 
----
+Полнофункциональная биллинговая система для панели управления игровыми серверами Pterodactyl 1.x, построенная на Laravel 10.
 
-<div align="center">
+## 📋 Возможности
 
-![GitHub tag](https://img.shields.io/github/v/tag/animesao/ptero-billing?style=for-the-badge)
-![License](https://img.shields.io/github/license/animesao/ptero-billing?style=for-the-badge)
-![GitHub stars](https://img.shields.io/github/stars/animesao/ptero-billing?style=for-the-badge)
-![GitHub forks](https://img.shields.io/github/forks/animesao/ptero-billing?style=for-the-badge)
+### Пользовательский интерфейс
+- ✅ Регистрация и авторизация пользователей
+- ✅ Витрина продуктов (игровых серверов)
+- ✅ Корзина и оформление заказа
+- ✅ Личный кабинет с управлением серверами
+- ✅ Управление питанием сервера (старт/стоп/рестарт)
+- ✅ Просмотр инвойсов и история платежей
+- ✅ Поддержка купонов и скидок
 
-[![Discord](https://img.shields.io/discord/787829714483019826?style=for-the-badge&logo=discord)](https://discord.gg/4Y6HjD2uyU)
-
-</div>
-
----
-
-## 🌟 О Проекте
-
-**Ptero-Billing** — это современная, бесплатная биллинг-панель для начинающих и опытных хостинг-провайдеров, которая бесшовно интегрируется с панелью управления **Pterodactyl**. 
-
-Панель предоставляет возможности для создания аккаунтов, заказа и управления серверами, поддерживает различные платежные методы, систему рефералов, партнерскую программу, ваучеры, тикеты поддержки и настраиваемые темы оформления.
-
-> ⚠️ **Важно:** Ptero-Billing совместим **только с Pterodactyl**. Поддержка Pelican и других панелей не предусмотрена.
-
----
-
-## ✨ Особенности
-
-### 🛒 Магазин и Биллинг
-- ✅ Кредитная система с почасовой оплатой
-- ✅ Автоматическое выставление счетов
-- ✅ Инвойсы в PDF формате
-- ✅ Автоматическое продление серверов
-
-### 💳 Платежные Методы
-- ✅ PayPal
-- ✅ Stripe
-- ✅ Coinbase Commerce
-- ✅ Другие популярные платежные системы
-
-### 🎁 Реферальная Система
-- ✅ Партнерская программа со скидками
-- ✅ Реферальные ссылки
-- ✅ Автоматические комиссионные
-
-### 🎫 Поддержка
-- ✅ Система тикетов
-- ✅ Категории тикетов
-- ✅ Черный список пользователей
-- ✅ Уведомления по email
-
-### 👤 Управление Аккаунтом
-- ✅ Личный кабинет пользователя
-- ✅ Управление серверами
-- ✅ История платежей
-- ✅ Настройки профиля
-
-### 🔧 Админ-панель
-- ✅ Полноценная админ-панель
+### Админ-панель (Filament)
 - ✅ Управление пользователями
-- ✅ Управление продуктами и услугами
+- ✅ Управление продуктами (связь с Pterodactyl Egg)
+- ✅ Управление заказами и серверами
+- ✅ Управление инвойсами и платежами
+- ✅ Управление купонами
 - ✅ Настройки системы
-- ✅ Журнал активности
-- ✅ API ключи
 
-### 🎨 Темы Оформления
-- ✅ **Nebula** — современная темная тема с градиентами
-- ✅ **Aurora** — светлая тема с эффектом северного сияния
-- ✅ Анимации и плавные переходы
-- ✅ Полностью адаптивный дизайн
+### Pterodactyl Интеграция
+- ✅ Автоматическое создание серверов при оплате
+- ✅ Приостановка серверов при неуплате
+- ✅ Удаление серверов при длительной неуплате
+- ✅ Синхронизация пользователей
+- ✅ Получение списка нод, яиц, локаций
 
-### 🌐 Многоязычность
-- ✅ Русский
-- ✅ English
-- ✅ Deutsch
-- ✅ Français
-- ✅ Español
-- ✅ Italiano
-- ✅ Polski
-- ✅ Português
-- ✅ Nederlands
-- ✅ 中文
-- ✅ И многие другие...
+### Платёжные шлюзы
+- ✅ Stripe (карты)
+- ✅ PayPal
+- ✅ Внутренний баланс
 
----
+### Биллинг
+- ✅ Автоматическая генерация инвойсов
+- ✅ Поддержка различных биллинговых циклов (ежемесячно, ежеквартально, ежегодно)
+- ✅ Grace period перед суспендом
+- ✅ Автоматическое удаление после периода неуплаты
 
-## 🚀 Быстрый Старт
+## 📁 Структура проекта
 
-### 🐳 Установка через Docker (Рекомендуется)
-
-```bash
-# Запуск контейнера
-docker run -d -p 8080:80 -p 8443:443 --name ptero-billing ghcr.io/animesao/ptero-billing:latest
-
-# После запуска откройте http://localhost:8080
+```
+ptero-billing/
+├── app/
+│   ├── Console/Commands/       # Artisan команды
+│   ├── Filament/Resources/     # Ресурсы админ-панели
+│   ├── Http/Controllers/       # Контроллеры
+│   ├── Jobs/                   # Очереди
+│   ├── Models/                 # Eloquent модели
+│   ├── Providers/              # Service Providers
+│   └── Services/               # Сервисы (Pterodactyl, Payments)
+├── config/                     # Конфигурация
+├── database/
+│   ├── migrations/             # Миграции БД
+│   └── seeders/                # Сидеры
+├── resources/views/            # Blade шаблоны
+├── routes/                     # Маршруты
+└── .env.example                # Пример конфигурации
 ```
 
-#### Docker Compose (Полная конфигурация)
+## 🚀 Требования
 
-```yaml
-version: '3.8'
+- PHP >= 8.1
+- MySQL >= 5.7 или MariaDB >= 10.3
+- Composer
+- Node.js >= 16 (опционально, для сборки ассетов)
+- Redis (опционально, для кеширования)
+- Pterodactyl Panel 1.x с API доступом
 
-services:
-  ptero-billing:
-    image: ghcr.io/animesao/ptero-billing:latest
-    container_name: ptero-billing
-    restart: unless-stopped
-    ports:
-      - "8080:80"
-      - "8443:443"
-    volumes:
-      - ./ptero-billing:/var/www/html
-    environment:
-      - APP_NAME=Ptero-Billing
-      - APP_ENV=production
-      - APP_DEBUG=false
-      - APP_URL=http://localhost:8080
-      - DB_CONNECTION=mysql
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_DATABASE=ptero-billing
-      - DB_USERNAME=ptero-billing
-      - DB_PASSWORD=your_secure_password
-    depends_on:
-      - mysql
-      - redis
+## 📖 Установка
 
-  mysql:
-    image: mysql:8.0
-    container_name: ptero-billing-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: ptero-billing
-      MYSQL_USER: ptero-billing
-      MYSQL_PASSWORD: your_secure_password
-      MYSQL_ROOT_PASSWORD: your_root_password
-    volumes:
-      - mysql_data:/var/lib/mysql
-
-  redis:
-    image: redis:alpine
-    container_name: ptero-billing-redis
-    restart: unless-stopped
-
-volumes:
-  mysql_data:
-```
-
-Запуск:
-```bash
-docker-compose up -d
-```
-
----
-
-### 💻 Установка без Docker
-
-#### Требования
-- **PHP:** 8.2 или выше
-- **Web Server:** Nginx или Apache
-- **Database:** MySQL 8.0+ или MariaDB 10.3+
-- **Redis:** Для кеширования
-- **Composer:** Для установки зависимостей PHP
-- **Node.js & NPM:** Для сборки ассетов
-
-#### Шаг 1: Клонирование репозитория
+### 1. Клонирование репозитория
 
 ```bash
 git clone https://github.com/animesao/ptero-billing.git
 cd ptero-billing
 ```
 
-#### Шаг 2: Установка зависимостей
+### 2. Установка зависимостей
 
 ```bash
-# Установка PHP зависимостей
-composer install --optimize-autoloader --no-dev
-
-# Установка Node.js зависимостей
-npm install
+composer install --no-dev --optimize-autoloader
 ```
 
-#### Шаг 3: Настройка окружения
+### 3. Настройка окружения
 
 ```bash
-# Копирование файла окружения
 cp .env.example .env
-
-# Генерация ключа приложения
 php artisan key:generate
 ```
 
-#### Шаг 4: Настройка базы данных
+### 4. Настройка базы данных
 
-Отредактируйте файл `.env` и укажите параметры вашей базы данных:
+Отредактируйте `.env` файл:
 
 ```env
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=ptero-billing
-DB_USERNAME=ptero-billing
-DB_PASSWORD=your_secure_password
+DB_DATABASE=ptero_billing
+DB_USERNAME=root
+DB_PASSWORD=your_password
 ```
 
-#### Шаг 5: Создание базы данных
+Создайте базу данных:
 
 ```bash
-mysql -u root -p
+mysql -u root -p -e "CREATE DATABASE ptero_billing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 ```
 
-```sql
-CREATE DATABASE `ptero-billing` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-EXIT;
-```
-
-#### Шаг 6: Запуск миграций
+### 5. Запуск миграций
 
 ```bash
-php artisan migrate --seed
+php artisan migrate --force
 ```
 
-#### Шаг 7: Настройка прав доступа
+### 6. Настройка Pterodactyl API
+
+1. Войдите в админ-панель Pterodactyl
+2. Перейдите в **Admin API** → **API Credentials**
+3. Создайте новый API ключ с правами:
+   - `Read` и `Write` для Users, Servers, Nodes, Nests
+4. Скопируйте ключ и добавьте в `.env`:
+
+```env
+PTERODACTYL_URL=https://your-panel.com
+PTERODACTYL_API_KEY=ptlc_your_api_key_here
+```
+
+### 7. Настройка платёжных шлюзов
+
+#### Stripe
+
+```env
+STRIPE_KEY=pk_test_your_public_key
+STRIPE_SECRET=sk_test_your_secret_key
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
+STRIPE_CURRENCY=usd
+```
+
+#### PayPal
+
+```env
+PAYPAL_CLIENT_ID=your_client_id
+PAYPAL_SECRET=your_secret
+PAYPAL_MODE=sandbox
+PAYPAL_CURRENCY=USD
+PAYPAL_NOTIFY_URL=https://yourdomain.com/webhooks/paypal
+```
+
+### 8. Настройка прав доступа
 
 ```bash
-# Для Linux/Mac
-chmod -R 755 storage/ bootstrap/cache/
-chown -R www-data:www-data storage/ bootstrap/cache/
-
-# Для Windows (PowerShell)
-icacls storage /grant Users:F /T
-icacls bootstrap/cache /grant Users:F /T
+chmod -R 755 storage bootstrap/cache
+chown -R www-data:www-data storage bootstrap/cache
 ```
 
-#### Шаг 8: Сборка ассетов
+### 9. Настройка воркера очередей
+
+Для обработки фоновых задач (создание серверов, отправка email) настройте supervisor:
+
+```ini
+[program:ptero-billing-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /path/to/ptero-billing/artisan queue:work database --sleep=3 --tries=3 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/path/to/ptero-billing/storage/logs/worker.log
+stopwaitsecs=3600
+```
+
+### 10. Настройка планировщика
+
+Добавьте в crontab (`crontab -e`):
 
 ```bash
-# Сборка для production
-npm run production
-
-# Или для разработки (с автообновлением)
-npm run development
+* * * * * cd /path/to/ptero-billing && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-#### Шаг 9: Настройка веб-сервера
+### 11. Создание администратора
 
-**Nginx конфигурация:**
+```bash
+php artisan tinker
+```
+
+```php
+\App\Models\User::create([
+    'name' => 'Admin',
+    'email' => 'admin@example.com',
+    'password' => bcrypt('your_password'),
+    'role' => 'admin',
+]);
+exit
+```
+
+### 12. Запуск веб-сервера
+
+#### Nginx конфигурация:
 
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com;
-    root /var/www/ptero-billing/public;
+    server_name yourdomain.com;
+    root /path/to/ptero-billing/public;
 
     add_header X-Frame-Options "SAMEORIGIN";
     add_header X-Content-Type-Options "nosniff";
@@ -285,244 +238,178 @@ server {
 }
 ```
 
-**Apache конфигурация:**
+## 🔧 Использование
 
-```apache
-<VirtualHost *:80>
-    ServerName your-domain.com
-    DocumentRoot /var/www/ptero-billing/public
+### Админ-панель
 
-    <Directory /var/www/ptero-billing/public>
-        AllowOverride All
-        Require all granted
-    </Directory>
+1. Войдите как администратор
+2. Перейдите в `/admin`
+3. Настройте продукты:
+   - Создайте продукт
+   - Укажите ID яйца Pterodactyl
+   - Настройте цены и лимиты
+   - Укажите доступные ноды (ID)
 
-    ErrorLog ${APACHE_LOG_DIR}/error.log
-    CustomLog ${APACHE_LOG_DIR}/access.log combined
-</VirtualHost>
+### Создание продукта
+
+1. В админ-панели перейдите в **Продукты** → **Создать**
+2. Заполните:
+   - Название и описание
+   - ID яйца (можно получить через API Pterodactyl)
+   - Цену и биллинговый цикл
+   - Характеристики (CPU, RAM, Disk)
+   - Доступные ноды
+3. Сохраните
+
+### Настройка вебхуков
+
+#### Stripe Webhook
+
+1. В Stripe Dashboard перейдите в Developers → Webhooks
+2. Добавьте endpoint: `https://yourdomain.com/webhooks/stripe`
+3. Выберите события:
+   - `checkout.session.completed`
+   - `payment_intent.succeeded`
+   - `payment_intent.failed`
+4. Скопируйте signing secret в `.env`
+
+#### PayPal Webhook
+
+1. В PayPal Developer Dashboard создайте webhook
+2. Endpoint: `https://yourdomain.com/webhooks/paypal`
+3. Выберите события:
+   - `PAYMENT.CAPTURE.COMPLETED`
+   - `PAYMENT.CAPTURE.DENIED`
+4. Добавьте webhook ID в настройки
+
+## 📊 API Endpoints
+
+### Pterodactyl API
+
+Система использует Pterodactyl API v1:
+
+- `GET /api/application/users` - Список пользователей
+- `POST /api/application/users` - Создание пользователя
+- `GET /api/application/nodes` - Список нод
+- `GET /api/application/nests/{id}/eggs` - Список яиц
+- `POST /api/application/servers` - Создание сервера
+- `POST /api/application/servers/{id}/suspend` - Приостановка
+- `DELETE /api/application/servers/{id}` - Удаление
+
+## 🗄️ Модель базы данных
+
+```
+users
+├── id
+├── name, email, password
+├── role (admin/user)
+├── pterodactyl_id
+├── balance
+└── status
+
+products
+├── id, name, description
+├── pterodactyl_egg_id
+├── price, billing_cycle
+├── cpu, memory, disk
+├── nodes (JSON)
+└── is_active
+
+orders
+├── id, user_id, product_id
+├── status, total, discount
+├── server_name
+├── pterodactyl_server_id
+└── paid_at
+
+servers
+├── id, user_id, order_id, product_id
+├── name, pterodactyl_id
+├── status
+├── cpu, memory, disk
+├── ip_address, port
+└── next_billing_date
+
+invoices
+├── id, user_id, server_id
+├── invoice_number
+├── status, total
+├── billing_cycle, due_date
+└── paid_at
+
+payments
+├── id, user_id, invoice_id
+├── gateway, transaction_id
+├── status, amount
+└── payload (JSON)
+
+coupons
+├── id, code
+├── type (percent/fixed), value
+├── max_uses, uses_count
+├── expires_at
+└── is_active
 ```
 
-#### Шаг 10: Настройка Cron
+## 🔐 Безопасность
+
+- Используйте HTTPS
+- Регулярно обновляйте зависимости
+- Настройте firewall
+- Используйте сильные пароли
+- Ограничьте доступ к админ-панели по IP
+- Регулярно делайте бэкапы базы данных
+
+## 📝 Команды Artisan
 
 ```bash
-# Откройте crontab
-crontab -e
+# Проверка инвойсов и суспенд серверов
+php artisan billing:check-invoices
 
-# Добавьте следующую строку
-* * * * * cd /var/www/ptero-billing && php artisan schedule:run >> /dev/null 2>&1
-```
+# Генерация инвойсов для продления
+php artisan billing:generate-invoices
 
----
+# Запуск воркера
+php artisan queue:work
 
-## 🎨 Настройка Тем
+# Запуск планировщика
+php artisan schedule:run
 
-Ptero-Billing поставляется с двумя красивыми темами:
-
-### Тема Nebula (Темная)
-Современная темная тема с фиолетовыми градиентами и анимациями.
-
-```env
-THEME_ACTIVE=nebula
-```
-
-### Тема Aurora (Светлая)
-Светлая тема с градиентами северного сияния.
-
-```env
-THEME_ACTIVE=aurora
-```
-
-Для применения темы выполните:
-```bash
-php artisan theme:set nebula
-# или
-php artisan theme:set aurora
-```
-
----
-
-## ⚙️ Конфигурация Pterodactyl
-
-Для интеграции с Pterodactyl вам потребуется:
-
-1. **Application API Key** из панели Pterodactyl
-2. **URL панели** Pterodactyl
-
-Настройте в `.env`:
-
-```env
-PTERODACTYL_URL=https://your-ptero-panel.com
-PTERODACTYL_API_KEY=ptla_xxxxxxxxxxxxxxxxxxxx
-```
-
----
-
-## 📁 Структура Проекта
-
-```
-ptero-billing/
-├── app/                    # Основной код приложения
-│   ├── Http/              # Контроллеры, Middleware, Requests
-│   ├── Models/            # Модели базы данных
-│   ├── Services/          # Бизнес-логика
-│   └── Helpers/           # Вспомогательные функции
-├── themes/                # Темы оформления
-│   ├── nebula/           # Темная тема
-│   └── aurora/           # Светлая тема
-├── database/              # Миграции и сидеры
-├── routes/                # Маршруты приложения
-├── resources/             # Представления и ассеты
-├── config/                # Файлы конфигурации
-└── public/                # Публичные файлы
-```
-
----
-
-## 🔧 Обновление
-
-```bash
-# Перейдите в директорию проекта
-cd /var/www/ptero-billing
-
-# Скачайте последнюю версию
-git pull origin main
-
-# Обновите зависимости
-composer install --optimize-autoloader --no-dev
-npm install
-
-# Запустите миграции
-php artisan migrate
-
-# Очистите кеш
+# Очистка кеша
 php artisan cache:clear
 php artisan config:clear
+php artisan route:clear
 php artisan view:clear
-
-# Пересоберите ассеты
-npm run production
-
-# Перезапустите очередь (если используется)
-php artisan queue:restart
 ```
 
----
+## 🐛 Решение проблем
 
-## 🐛 Решение Проблем
+### Ошибка подключения к Pterodactyl
 
-### Ошибка "500 Internal Server Error"
-```bash
-# Проверьте логи
-tail -f storage/logs/laravel.log
+1. Проверьте URL и API ключ
+2. Убедитесь, что API ключ имеет нужные права
+3. Проверьте логи: `storage/logs/laravel.log`
 
-# Проверьте права доступа
-chmod -R 755 storage/ bootstrap/cache/
+### Очереди не работают
 
-# Очистите кеш
-php artisan optimize:clear
-```
+1. Убедитесь, что `QUEUE_CONNECTION=database` в `.env`
+2. Проверьте, что таблица `jobs` создана
+3. Запустите воркера: `php artisan queue:work`
 
-### Ошибка подключения к базе данных
-```bash
-# Проверьте параметры в .env
-# Убедитесь что БД существует
-# Проверьте пользователя БД
-```
+### Вебхуки не обрабатываются
 
-### Cron не работает
-```bash
-# Проверьте что cron запущен
-systemctl status cron
-
-# Проверьте crontab
-crontab -l
-```
-
----
-
-## 🤝 Вклад в Проект
-
-Мы приветствуем вклад в развитие Ptero-Billing!
-
-### Как внести свой вклад:
-1. Fork репозиторий
-2. Создайте ветку (`git checkout -b feature/AmazingFeature`)
-3. Сделайте изменения (`git commit -m 'Add some AmazingFeature'`)
-4. Отправьте в ветку (`git push origin feature/AmazingFeature`)
-5. Откройте Pull Request
-
-### Разработка
-
-```bash
-# Клонирование
-git clone https://github.com/animesao/ptero-billing.git
-cd ptero-billing
-
-# Установка зависимостей
-composer install
-npm install
-
-# Запуск в режиме разработки
-npm run development
-php artisan serve
-```
-
----
+1. Проверьте, что webhook URL доступен извне
+2. Проверьте подписи вебхуков
+3. Включите логирование для отладки
 
 ## 📄 Лицензия
 
-Ptero-Billing распространяется под лицензией MIT. Подробнее см. в файле [LICENSE](LICENSE).
+MIT License
 
----
+## 👥 Авторы
 
-## 👨‍💻 Автор
+- animesao
 
-**animesao**
-- GitHub: [@animesao](https://github.com/animesao)
-- Project: [Ptero-Billing](https://github.com/animesao/ptero-billing)
+## 🤝 Поддержка
 
----
-
-## 💖 Поддержка Проекта
-
-Если вам нравится этот проект, вы можете поддержать его развитие:
-
-- ⭐ Поставьте звезду на GitHub
-- 🐛 Сообщайте об ошибках
-- 💡 Предлагайте новые функции
-- 📝 Улучшайте документацию
-- 🔄 Делитесь с друзьями
-
----
-
-## 📞 Поддержка и Сообщество
-
-- 💬 **Discord:** [Присоединиться](https://discord.gg/4Y6HjD2uyU)
-- 📖 **Документация:** [Читать](https://github.com/animesao/ptero-billing/wiki)
-- 🐛 **Баг-трекер:** [Сообщить об ошибке](https://github.com/animesao/ptero-billing/issues)
-
----
-
-## 🗺️ Roadmap
-
-- [ ] Поддержка дополнительных платежных систем
-- [ ] Двухфакторная аутентификация (2FA)
-- [ ] GraphQL API
-- [ ] Мобильное приложение
-- [ ] Расширенная аналитика
-- [ ] Интеграция с Discord ботом
-- [ ] Система купонов и промокодов
-- [ ] Мультиязычная поддержка клиентов
-
----
-
-<div align="center">
-
-### ⭐ Сделано с любовью для сообщества
-
-**Ptero-Billing** © 2024 [animesao](https://github.com/animesao)
-
-[![Stars](https://img.shields.io/github/stars/animesao/ptero-billing?style=social)](https://github.com/animesao/ptero-billing/stargazers)
-[![Forks](https://img.shields.io/github/forks/animesao/ptero-billing?style=social)](https://github.com/animesao/ptero-billing/network/members)
-
-</div>
+Для вопросов и предложений создайте Issue в репозитории.

@@ -2,133 +2,119 @@
 
 namespace App\Models;
 
-use App\Facades\Currency;
-use App\Settings\CouponSettings;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Spatie\Activitylog\LogOptions;
-use Spatie\Activitylog\Traits\CausesActivity;
-use Spatie\Activitylog\Traits\LogsActivity;
-use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Coupon extends Model
 {
-    use HasFactory, LogsActivity, CausesActivity;
+    use HasFactory;
 
-    public function getActivitylogOptions(): LogOptions
-    {
-        return LogOptions::defaults()
-            ->logFillable()
-            ->logOnlyDirty()
-            ->dontSubmitEmptyLogs();
-    }
-
-    /**
-     * @var string[]
-     */
     protected $fillable = [
         'code',
+        'description',
         'type',
         'value',
-        'uses',
+        'min_order',
         'max_uses',
-        'expires_at'
+        'uses_count',
+        'expires_at',
+        'is_active',
+        'applicable_products',
     ];
 
-    /**
-     * @var string[]
-     */
     protected $casts = [
-        'value' => 'float',
-        'uses' => 'integer',
-        'max_uses' => 'integer',
-        'expires_at' => 'timestamp'
+        'value' => 'decimal:2',
+        'min_order' => 'decimal:2',
+        'applicable_products' => 'array',
+        'expires_at' => 'datetime',
+        'is_active' => 'boolean',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     /**
-     * Set the value to be in cents.
-     *
-     * @return Attribute
+     * Типы купонов
      */
-    protected function value(): Attribute
-    {
-        return Attribute::make(
-            set: fn ($value) => $this->type == 'amount' ? Currency::prepareForDatabase($value) : $value
-        );
-    }
+    const TYPE_PERCENT = 'percent';
+    const TYPE_FIXED = 'fixed';
 
     /**
-     * Returns the date format used by the coupons.
-     *
-     * @return string
-     */
-    public static function formatDate(): string
-    {
-        return 'Y-MM-DD HH:mm:ss';
-    }
-
-    /**
-     * Returns the current state of the coupon.
-     *
-     * @return string
-     */
-    public function getStatus()
-    {
-        if ($this->uses >= $this->max_uses) {
-            return 'USES_LIMIT_REACHED';
-        }
-
-        if (!is_null($this->expires_at)) {
-            if ($this->expires_at <= Carbon::now(config('app.timezone'))->timestamp) {
-                return __('EXPIRED');
-            }
-        }
-
-        return __('VALID');
-    }
-
-    /**
-     * Check if a user has already exceeded the uses of a coupon.
-     *
-     * @param User $user The request being made.
-     *
-     * @return bool
-     */
-    public function isMaxUsesReached($user): bool
-    {
-        $coupon_settings = new CouponSettings;
-        $coupon_uses = $user->coupons()->where('id', $this->id)->count();
-
-        return $coupon_uses >= $coupon_settings->max_uses_per_user;
-    }
-
-    /**
-     * Generate a specified quantity of coupon codes.
-     *
-     * @param int $amount Amount of coupons to be generated.
-     *
-     * @return array
-     */
-    public static function generateRandomCoupon(int $amount = 10): array
-    {
-        $coupons = [];
-
-        for ($i = 0; $i < $amount; $i++) {
-            $random_coupon = strtoupper(bin2hex(random_bytes(3)));
-
-            $coupons[] = $random_coupon;
-        }
-
-        return $coupons;
-    }
-
-    /**
-     * @return BelongsToMany
+     * Связь с пользователями (кто использовал)
      */
     public function users()
     {
-        return $this->belongsToMany(User::class, 'user_coupons');
+        return $this->belongsToMany(User::class, 'coupon_user')
+            ->withTimestamps();
+    }
+
+    /**
+     * Связь с заказами
+     */
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Проверка валидности купона
+     */
+    public function isValid(?User $user = null, ?float $orderTotal = null): bool
+    {
+        if (!$this->is_active) {
+            return false;
+        }
+
+        if ($this->expires_at && $this->expires_at->isPast()) {
+            return false;
+        }
+
+        if ($this->max_uses > 0 && $this->uses_count >= $this->max_uses) {
+            return false;
+        }
+
+        if ($orderTotal !== null && $orderTotal < $this->min_order) {
+            return false;
+        }
+
+        if ($user && $this->users()->where('user_id', $user->id)->exists()) {
+            return false; // Уже использован пользователем
+        }
+
+        return true;
+    }
+
+    /**
+     * Рассчитать скидку
+     */
+    public function calculateDiscount(float $total): float
+    {
+        if ($this->type === self::TYPE_PERCENT) {
+            return min($total * ($this->value / 100), $total);
+        }
+
+        return min($this->value, $total);
+    }
+
+    /**
+     * Применить купон к пользователю
+     */
+    public function applyToUser(User $user): void
+    {
+        if (!$this->users()->where('user_id', $user->id)->exists()) {
+            $this->users()->attach($user->id);
+            $this->increment('uses_count');
+        }
+    }
+
+    /**
+     * Проверка применимости к продукту
+     */
+    public function isApplicableToProduct(int $productId): bool
+    {
+        if (empty($this->applicable_products)) {
+            return true; // Применяется ко всем продуктам
+        }
+
+        return in_array($productId, $this->applicable_products);
     }
 }
