@@ -1,5 +1,36 @@
 # Инструкция по развёртыванию на VPS
 
+## Варианты установки
+
+### Локальная разработка (SQLite)
+
+Для быстрой локальной установки используйте SQLite:
+
+```bash
+# Создайте БД
+type nul > database\database.sqlite  # Windows
+# touch database/database.sqlite     # Linux/Mac
+
+# Скопируйте конфиг для локальной разработки
+cp .env.local .env
+
+# Сгенерируйте ключ
+php artisan key:generate
+
+# Запустите миграции
+php artisan migrate
+
+# Запустите сидеры (опционально)
+php artisan db:seed
+
+# Запустите сервер
+php artisan serve
+```
+
+---
+
+## Production установка (MySQL)
+
 ## Шаг 1: Подготовка сервера
 
 ### Обновление системы

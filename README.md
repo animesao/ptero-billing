@@ -63,7 +63,7 @@ ptero-billing/
 ## 🚀 Требования
 
 - PHP >= 8.1
-- MySQL >= 5.7 или MariaDB >= 10.3
+- MySQL >= 5.7 или MariaDB >= 10.3 **или** SQLite 3
 - Composer
 - Node.js >= 16 (опционально, для сборки ассетов)
 - Redis (опционально, для кеширования)
@@ -87,11 +87,30 @@ composer install --no-dev --optimize-autoloader
 ### 3. Настройка окружения
 
 ```bash
+# Для production
 cp .env.example .env
+
+# Для локальной разработки (SQLite)
+cp .env.local .env
+
 php artisan key:generate
 ```
 
 ### 4. Настройка базы данных
+
+#### Вариант 1: SQLite (рекомендуется для локальной разработки)
+
+```bash
+# Создайте файл базы данных (Windows)
+type nul > database\database.sqlite
+
+# Или (Linux/Mac)
+touch database/database.sqlite
+
+# Готово! SQLite не требует дополнительной настройки
+```
+
+#### Вариант 2: MySQL (для production)
 
 Отредактируйте `.env` файл:
 
