@@ -2,7 +2,7 @@
 
 Современная биллинг-панель для управления серверами Pterodactyl с красивым UI и поддержкой SQLite/PostgreSQL/MySQL.
 
-![Версия](https://img.shields.io/badge/version-1.0.3-alfa-blue.svg)
+![Версия](https://img.shields.io/badge/version-1.0.3-blue.svg)
 ![Лицензия](https://img.shields.io/badge/license-MIT-green.svg)
 
 ---
@@ -398,4 +398,5 @@ GitHub: [@animesao](https://github.com/animesao)
 ---
 
 **PteroBilling** — современное решение для биллинга серверов Pterodactyl! 🚀
+
 
