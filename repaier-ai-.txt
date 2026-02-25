@@ -1,0 +1,489 @@
+PS C:\Users\Anime\Downloads\ptero-billing> npm run dev
+
+> pterobilling@1.0.0 dev
+> node server/index.js
+
+[dotenv@17.3.1] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+SQLite database initialized
+PteroBilling server running on port 5000 (using sqlite)
+Plan data: {"id":4,"name":"GAME-1","eggId":1,"nestId":null,"nodeIds":null,"allocationId":null,"dockerImage":null,"startup":null}
+Selected least loaded node: ger (load: 999999)
+Auto-selected least loaded node: 5
+Auto-selected allocation ID: 1636
+Pterodactyl API error details: {
+  "errors": [
+    {
+      "code": "ValidationException",
+      "status": "422",
+      "detail": "The docker image field is required.",
+      "meta": {
+        "source_field": "docker_image",
+        "rule": "required"
+      }
+    },
+    {
+      "code": "ValidationException",
+      "status": "422",
+      "detail": "The startup field is required.",
+      "meta": {
+        "source_field": "startup",
+        "rule": "required"
+      }
+    }
+  ]
+}
+Pterodactyl error: AxiosError: Request failed with status code 422
+    at settle (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/axios/lib/core/settle.js:19:12)
+    at IncomingMessage.handleStreamEnd (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/axios/lib/adapters/http.js:798:11)
+    at IncomingMessage.emit (node:events:520:35)
+    at endReadableNT (node:internal/streams/readable:1701:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+    at Axios.request (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/axios/lib/core/Axios.js:46:41)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async Module.createServer (file:///C:/Users/Anime/Downloads/ptero-billing/server/services/pterodactyl.js:398:22)
+    at async file:///C:/Users/Anime/Downloads/ptero-billing/server/routes/user.js:364:27 {
+  isAxiosError: true,
+  code: 'ERR_BAD_REQUEST',
+  config: {
+    transitional: {
+      silentJSONParsing: true,
+      forcedJSONParsing: true,
+      clarifyTimeoutError: false,
+      legacyInterceptorReqResOrdering: true
+    },
+    adapter: [ 'xhr', 'http', 'fetch' ],
+    transformRequest: [ [Function: transformRequest] ],
+    transformResponse: [ [Function: transformResponse] ],
+    timeout: 30000,
+    xsrfCookieName: 'XSRF-TOKEN',
+    xsrfHeaderName: 'X-XSRF-TOKEN',
+    maxContentLength: -1,
+    maxBodyLength: -1,
+    env: { FormData: [Function], Blob: [class Blob] },
+    validateStatus: [Function: validateStatus],
+    headers: Object [AxiosHeaders] {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ptla_xuz5TGBNe4KbRqEBisZme6MM2WFB0Gs9dptIzWN3iCu',
+      'User-Agent': 'axios/1.13.5',
+      'Content-Length': '242',
+      'Accept-Encoding': 'gzip, compress, deflate, br'
+    },
+    baseURL: 'https://panel.amethystcloud.online/api/application',
+    method: 'post',
+    url: '/servers',
+    data: '{"name":"GAME-1","user":1,"egg":1,"docker_image":null,"startup":null,"environment":{},"limits":{"memory":1024,"swap":0,"disk":5120,"io":500,"cpu":100},"feature_limits":{"databases":0,"backups":0,"allocations":1},"allocation":{"default":1636}}',
+    allowAbsoluteUrls: true
+  },
+  request: <ref *1> ClientRequest {
+    _events: [Object: null prototype] {
+      abort: [Function (anonymous)],
+      aborted: [Function (anonymous)],
+      connect: [Function (anonymous)],
+      error: [Function (anonymous)],
+      socket: [Function (anonymous)],
+      timeout: [Function (anonymous)],
+      finish: [Function: requestOnFinish]
+    },
+    _eventsCount: 7,
+    _maxListeners: undefined,
+    outputData: [],
+    outputSize: 0,
+    writable: true,
+    destroyed: true,
+    _last: false,
+    chunkedEncoding: false,
+    shouldKeepAlive: true,
+    maxRequestsOnConnectionReached: false,
+    _defaultKeepAlive: true,
+    useChunkedEncodingByDefault: true,
+    sendDate: false,
+    _removedConnection: false,
+    _removedContLen: false,
+    _removedTE: false,
+    strictContentLength: false,
+    _contentLength: 242,
+    _hasBody: true,
+    _trailer: '',
+    finished: true,
+    _headerSent: true,
+    _closed: true,
+    _header: 'POST /api/application/servers HTTP/1.1\r\n' +
+      'Accept: application/json\r\n' +
+      'Content-Type: application/json\r\n' +
+      'Authorization: Bearer ptla_xuz5TGBNe4KbRqEBisZme6MM2WFB0Gs9dptIzWN3iCu\r\n' +
+      'User-Agent: axios/1.13.5\r\n' +
+      'Content-Length: 242\r\n' +
+      'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+      'Host: panel.amethystcloud.online\r\n' +
+      'Connection: keep-alive\r\n' +
+      '\r\n',
+    _keepAliveTimeout: 0,
+    _onPendingData: [Function: nop],
+    agent: Agent {
+      _events: [Object: null prototype],
+      _eventsCount: 2,
+      _maxListeners: undefined,
+      options: [Object: null prototype],
+      defaultPort: 443,
+      protocol: 'https:',
+      requests: [Object: null prototype] {},
+      sockets: [Object: null prototype] {},
+      freeSockets: [Object: null prototype],
+      keepAliveMsecs: 1000,
+      keepAlive: true,
+      maxSockets: Infinity,
+      maxFreeSockets: 256,
+      scheduling: 'lifo',
+      maxTotalSockets: Infinity,
+      totalSocketCount: 1,
+      agentKeepAliveTimeoutBuffer: 1000,
+      maxCachedSessions: 100,
+      _sessionCache: [Object],
+      Symbol(shapeMode): false,
+      Symbol(kCapture): false
+    },
+    socketPath: undefined,
+    method: 'POST',
+    maxHeaderSize: undefined,
+    insecureHTTPParser: undefined,
+    joinDuplicateHeaders: undefined,
+    path: '/api/application/servers',
+    _ended: true,
+    res: IncomingMessage {
+      _events: [Object],
+      _readableState: [ReadableState],
+      _maxListeners: undefined,
+      socket: null,
+      httpVersionMajor: 1,
+      httpVersionMinor: 1,
+      httpVersion: '1.1',
+      complete: true,
+      rawHeaders: [Array],
+      rawTrailers: [],
+      joinDuplicateHeaders: undefined,
+      aborted: false,
+      upgrade: false,
+      url: '',
+      method: null,
+      statusCode: 422,
+      statusMessage: 'Unprocessable Entity',
+      client: [TLSSocket],
+      _consuming: true,
+      _dumped: false,
+      req: [Circular *1],
+      _eventsCount: 4,
+      responseUrl: 'https://panel.amethystcloud.online/api/application/servers',
+      redirects: [],
+      Symbol(shapeMode): true,
+      Symbol(kCapture): false,
+      Symbol(kHeaders): [Object],
+      Symbol(kHeadersCount): 30,
+      Symbol(kTrailers): null,
+      Symbol(kTrailersCount): 0
+    },
+    aborted: false,
+    timeoutCb: null,
+    upgradeOrConnect: false,
+    parser: null,
+    maxHeadersCount: null,
+    reusedSocket: true,
+    host: 'panel.amethystcloud.online',
+    protocol: 'https:',
+    _redirectable: Writable {
+      _events: [Object],
+      _writableState: [WritableState],
+      _maxListeners: undefined,
+      _options: [Object],
+      _ended: true,
+      _ending: true,
+      _redirectCount: 0,
+      _redirects: [],
+      _requestBodyLength: 242,
+      _requestBodyBuffers: [],
+      _eventsCount: 3,
+      _onNativeResponse: [Function (anonymous)],
+      _currentRequest: [Circular *1],
+      _currentUrl: 'https://panel.amethystcloud.online/api/application/servers',
+      _timeout: null,
+      Symbol(shapeMode): true,
+      Symbol(kCapture): false
+    },
+    Symbol(shapeMode): false,
+    Symbol(kCapture): false,
+    Symbol(kBytesWritten): 0,
+    Symbol(kNeedDrain): false,
+    Symbol(corked): 0,
+    Symbol(kChunkedBuffer): [],
+    Symbol(kChunkedLength): 0,
+    Symbol(kSocket): TLSSocket {
+      _tlsOptions: [Object],
+      _secureEstablished: true,
+      _securePending: false,
+      _newSessionPending: false,
+      _controlReleased: true,
+      secureConnecting: false,
+      _SNICallback: null,
+      servername: 'panel.amethystcloud.online',
+      alpnProtocol: false,
+      authorized: true,
+      authorizationError: null,
+      encrypted: true,
+      _events: [Object: null prototype],
+      _eventsCount: 9,
+      connecting: false,
+      _hadError: false,
+      _parent: null,
+      _host: 'panel.amethystcloud.online',
+      _closeAfterHandlingError: false,
+      _readableState: [ReadableState],
+      _writableState: [WritableState],
+      allowHalfOpen: false,
+      _maxListeners: undefined,
+      _sockname: null,
+      _pendingData: null,
+      _pendingEncoding: '',
+      server: undefined,
+      _server: null,
+      ssl: [TLSWrap],
+      _requestCert: true,
+      _rejectUnauthorized: true,
+      timeout: 5000,
+      parser: null,
+      _httpMessage: null,
+      autoSelectFamilyAttemptedAddresses: [Array],
+      Symbol(alpncallback): null,
+      Symbol(res): [TLSWrap],
+      Symbol(verified): true,
+      Symbol(pendingSession): null,
+      Symbol(async_id_symbol): -1,
+      Symbol(kHandle): [TLSWrap],
+      Symbol(lastWriteQueueSize): 0,
+      Symbol(timeout): Timeout {
+        _idleTimeout: 5000,
+        _idlePrev: [TimersList],
+        _idleNext: [Timeout],
+        _idleStart: 118628,
+        _onTimeout: [Function: bound ],
+        _timerArgs: undefined,
+        _repeat: null,
+        _destroyed: false,
+        Symbol(refed): false,
+        Symbol(kHasPrimitive): false,
+        Symbol(asyncId): 4105,
+        Symbol(triggerId): 4103,
+        Symbol(kAsyncContextFrame): undefined
+      },
+      Symbol(kBuffer): null,
+      Symbol(kBufferCb): null,
+      Symbol(kBufferGen): null,
+      Symbol(shapeMode): true,
+      Symbol(kCapture): false,
+      Symbol(kSetNoDelay): false,
+      Symbol(kSetKeepAlive): true,
+      Symbol(kSetKeepAliveInitialDelay): 1,
+      Symbol(kBytesRead): 0,
+      Symbol(kBytesWritten): 0,
+      Symbol(connect-options): [Object]
+    },
+    Symbol(kOutHeaders): [Object: null prototype] {
+      accept: [Array],
+      'content-type': [Array],
+      authorization: [Array],
+      'user-agent': [Array],
+      'content-length': [Array],
+      'accept-encoding': [Array],
+      host: [Array]
+    },
+    Symbol(errored): null,
+    Symbol(kHighWaterMark): 16384,
+    Symbol(kRejectNonStandardBodyWrites): false,
+    Symbol(kUniqueHeaders): null
+  },
+  response: {
+    status: 422,
+    statusText: 'Unprocessable Entity',
+    headers: Object [AxiosHeaders] {
+      date: 'Sun, 22 Feb 2026 17:35:12 GMT',
+      'content-type': 'application/json',
+      'transfer-encoding': 'chunked',
+      connection: 'keep-alive',
+      server: 'cloudflare',
+      'cache-control': 'no-cache, private',
+      'x-ratelimit-limit': '240',
+      'x-ratelimit-remaining': '201',
+      'access-control-allow-origin': '',
+      'access-control-allow-credentials': 'true',
+      'cf-cache-status': 'DYNAMIC',
+      nel: '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}',
+      'report-to': '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=kUdVkAvUmSIHs6BBHWjh%2BA5IpFKXvONVPn2QNhwpbJ%2BtTShTOwmA99m%2FT9RcW%2FxyLnwq4VuDZ5BnJkHLOTXTnf%2FJ4HePKMaQrYLvC6%2FavXoK5OxH02s2odHmnsC1qZUT4Ww6QffS"}]}',
+      'cf-ray': '9d203d173e1d9d94-DME',
+      'alt-svc': 'h3=":443"; ma=86400'
+    },
+    config: {
+      transitional: [Object],
+      adapter: [Array],
+      transformRequest: [Array],
+      transformResponse: [Array],
+      timeout: 30000,
+      xsrfCookieName: 'XSRF-TOKEN',
+      xsrfHeaderName: 'X-XSRF-TOKEN',
+      maxContentLength: -1,
+      maxBodyLength: -1,
+      env: [Object],
+      validateStatus: [Function: validateStatus],
+      headers: [Object [AxiosHeaders]],
+      baseURL: 'https://panel.amethystcloud.online/api/application',
+      method: 'post',
+      url: '/servers',
+      data: '{"name":"GAME-1","user":1,"egg":1,"docker_image":null,"startup":null,"environment":{},"limits":{"memory":1024,"swap":0,"disk":5120,"io":500,"cpu":100},"feature_limits":{"databases":0,"backups":0,"allocations":1},"allocation":{"default":1636}}',
+      allowAbsoluteUrls: true
+    },
+    request: <ref *1> ClientRequest {
+      _events: [Object: null prototype],
+      _eventsCount: 7,
+      _maxListeners: undefined,
+      outputData: [],
+      outputSize: 0,
+      writable: true,
+      destroyed: true,
+      _last: false,
+      chunkedEncoding: false,
+      shouldKeepAlive: true,
+      maxRequestsOnConnectionReached: false,
+      _defaultKeepAlive: true,
+      useChunkedEncodingByDefault: true,
+      sendDate: false,
+      _removedConnection: false,
+      _removedContLen: false,
+      _removedTE: false,
+      strictContentLength: false,
+      _contentLength: 242,
+      _hasBody: true,
+      _trailer: '',
+      finished: true,
+      _headerSent: true,
+      _closed: true,
+      _header: 'POST /api/application/servers HTTP/1.1\r\n' +
+        'Accept: application/json\r\n' +
+        'Content-Type: application/json\r\n' +
+        'Authorization: Bearer ptla_xuz5TGBNe4KbRqEBisZme6MM2WFB0Gs9dptIzWN3iCu\r\n' +
+        'User-Agent: axios/1.13.5\r\n' +
+        'Content-Length: 242\r\n' +
+        'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+        'Host: panel.amethystcloud.online\r\n' +
+        'Connection: keep-alive\r\n' +
+        '\r\n',
+      _keepAliveTimeout: 0,
+      _onPendingData: [Function: nop],
+      agent: [Agent],
+      socketPath: undefined,
+      method: 'POST',
+      maxHeaderSize: undefined,
+      insecureHTTPParser: undefined,
+      joinDuplicateHeaders: undefined,
+      path: '/api/application/servers',
+      _ended: true,
+      res: [IncomingMessage],
+      aborted: false,
+      timeoutCb: null,
+      upgradeOrConnect: false,
+      parser: null,
+      maxHeadersCount: null,
+      reusedSocket: true,
+      host: 'panel.amethystcloud.online',
+      protocol: 'https:',
+      _redirectable: [Writable],
+      Symbol(shapeMode): false,
+      Symbol(kCapture): false,
+      Symbol(kBytesWritten): 0,
+      Symbol(kNeedDrain): false,
+      Symbol(corked): 0,
+      Symbol(kChunkedBuffer): [],
+      Symbol(kChunkedLength): 0,
+      Symbol(kSocket): [TLSSocket],
+      Symbol(kOutHeaders): [Object: null prototype],
+      Symbol(errored): null,
+      Symbol(kHighWaterMark): 16384,
+      Symbol(kRejectNonStandardBodyWrites): false,
+      Symbol(kUniqueHeaders): null
+    },
+    data: { errors: [Array] }
+  },
+  status: 422
+}
+Windows PowerShell
+(C) Корпорация Майкрософт (Microsoft Corporation). Все права защищены.
+
+Установите последнюю версию PowerShell для новых функций и улучшения! https://aka.ms/PSWindows
+
+PS C:\Users\Anime\Downloads\ptero-billing> npm run dev
+
+> pterobilling@1.0.0 dev
+> node server/index.js
+
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+SQLite database initialized
+PteroBilling server running on port 5000 (using sqlite)
+Delete user error: DrizzleQueryError: Failed query: delete from "users" where "users"."id" = ?
+params: 2
+    at LibSQLPreparedQuery.queryWithCache (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/sqlite-core/session.js:43:15)
+    at async LibSQLPreparedQuery.run (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/libsql/session.js:121:12)
+    at async file:///C:/Users/Anime/Downloads/ptero-billing/server/routes/admin.js:160:5 {
+  query: 'delete from "users" where "users"."id" = ?',
+  params: [ 2 ],
+  cause: LibsqlError: SQLITE_CONSTRAINT_FOREIGNKEY: FOREIGN KEY constraint failed
+      at mapSqliteError (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/@libsql/client/lib-esm/sqlite3.js:372:16)
+      at executeStmt (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/@libsql/client/lib-esm/sqlite3.js:277:15)
+      at Sqlite3Client.execute (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/@libsql/client/lib-esm/sqlite3.js:79:16)
+      ... 5 lines matching cause stack trace ...
+      at QueryPromise.then (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/query-promise.js:21:17) {
+    code: 'SQLITE_CONSTRAINT_FOREIGNKEY',
+    rawCode: 787,
+    [cause]: SqliteError: FOREIGN KEY constraint failed
+        at convertError (C:\Users\Anime\Downloads\ptero-billing\node_modules\libsql\index.js:51:12)
+        at Statement.run (C:\Users\Anime\Downloads\ptero-billing\node_modules\libsql\index.js:301:13)
+        at executeStmt (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/@libsql/client/lib-esm/sqlite3.js:270:34)
+        at Sqlite3Client.execute (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/@libsql/client/lib-esm/sqlite3.js:79:16)
+        at file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/libsql/session.js:123:60
+        at LibSQLPreparedQuery.queryWithCache (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/sqlite-core/session.js:41:22)
+        at LibSQLPreparedQuery.run (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/libsql/session.js:121:23)
+        at LibSQLPreparedQuery.execute (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/sqlite-core/session.js:117:38)
+        at QueryPromise.execute (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/sqlite-core/query-builders/delete.js:114:28)
+        at QueryPromise.then (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/query-promise.js:21:17) {
+      code: 'SQLITE_CONSTRAINT_FOREIGNKEY',
+      rawCode: 787
+    }
+  }
+}
+Delete user error: DrizzleQueryError: Failed query: delete from "users" where "users"."id" = ?
+params: 2
+    at LibSQLPreparedQuery.queryWithCache (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/sqlite-core/session.js:43:15)
+    at async LibSQLPreparedQuery.run (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/libsql/session.js:121:12)
+    at async file:///C:/Users/Anime/Downloads/ptero-billing/server/routes/admin.js:160:5 {
+  query: 'delete from "users" where "users"."id" = ?',
+  params: [ 2 ],
+  cause: LibsqlError: SQLITE_CONSTRAINT_FOREIGNKEY: FOREIGN KEY constraint failed
+      at mapSqliteError (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/@libsql/client/lib-esm/sqlite3.js:372:16)
+      at executeStmt (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/@libsql/client/lib-esm/sqlite3.js:277:15)
+      at Sqlite3Client.execute (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/@libsql/client/lib-esm/sqlite3.js:79:16)
+      ... 5 lines matching cause stack trace ...
+      at QueryPromise.then (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/query-promise.js:21:17) {
+    code: 'SQLITE_CONSTRAINT_FOREIGNKEY',
+    rawCode: 787,
+    [cause]: SqliteError: FOREIGN KEY constraint failed
+        at convertError (C:\Users\Anime\Downloads\ptero-billing\node_modules\libsql\index.js:51:12)
+        at Statement.run (C:\Users\Anime\Downloads\ptero-billing\node_modules\libsql\index.js:301:13)
+        at executeStmt (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/@libsql/client/lib-esm/sqlite3.js:270:34)
+        at Sqlite3Client.execute (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/@libsql/client/lib-esm/sqlite3.js:79:16)
+        at file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/libsql/session.js:123:60
+        at LibSQLPreparedQuery.queryWithCache (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/sqlite-core/session.js:41:22)
+        at LibSQLPreparedQuery.run (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/libsql/session.js:121:23)
+        at LibSQLPreparedQuery.execute (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/sqlite-core/session.js:117:38)
+        at QueryPromise.execute (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/sqlite-core/query-builders/delete.js:114:28)
+        at QueryPromise.then (file:///C:/Users/Anime/Downloads/ptero-billing/node_modules/drizzle-orm/query-promise.js:21:17) {
+      code: 'SQLITE_CONSTRAINT_FOREIGNKEY',
+      rawCode: 787
+    }
+  }
+}
